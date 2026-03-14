@@ -6,6 +6,12 @@
     <title>Monitor de Contratos y Licitaciones Públicas - Ph.D. Monteverde</title>
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script>
+      (function(){
+        emailjs.init({ publicKey: "dkqfVFcSh7uyG0PIc" });
+      })();
+    </script>
     <style>
     {% raw %}
         .hero-frases {
@@ -139,7 +145,7 @@
     <!-- FRASES -->
     <div class="hero-frases" style="margin: 0; border-radius: 0; border-left: none; border-bottom: 1px solid #1e2d4a; padding: 1.2rem 2rem;">
         <p>Las administraciones públicas están obligadas a la transparencia.</p>
-        <p>Tenemos derecho a la informacion publica. <strong style="color:#06b6d4">Tenes derecho a saber que se hace con tu dinero.</strong></p>
+        <p>Tenemos derecho a la información pública. <strong style="color:#06b6d4">Tenés derecho a saber qué se hace con tu dinero.</strong></p>
     </div>
 
     <!-- MODAL DONACIÓN -->
@@ -241,6 +247,20 @@
                 alert('Por favor completá todos los campos.');
                 return;
             }
+            const origenTexto = origen === 'ar' ? '🇦🇷 Desde Argentina' : '🌍 From abroad';
+
+            // Enviar email de notificación
+            emailjs.send("service_72if9r9", "goylprv", {
+                nombre: nombre,
+                apellido: apellido,
+                email: email,
+                origen: origenTexto
+            }).then(() => {
+                console.log('Email enviado OK');
+            }).catch((err) => {
+                console.warn('Email no enviado:', err);
+            });
+
             document.getElementById('formulario').style.display = 'none';
             if (origen === 'ar') {
                 document.getElementById('saludoAR').textContent = `Hola ${nombre}, usá alguno de estos alias para transferir desde tu homebanking o billetera virtual:`;

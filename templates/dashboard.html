@@ -3,15 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor XAI - Ph.D. Monteverde</title>
+    <title>Monitor de Contratos y Licitaciones Públicas - Ph.D. Monteverde</title>
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        .hero-frases {
+            background: linear-gradient(135deg, #0f172a 0%, #1e2d4a 100%);
+            border-left: 4px solid var(--accent-cyan, #06b6d4);
+            padding: 1.5rem 2rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .hero-frases p {
+            color: #cbd5e1;
+            font-size: 1rem;
+            line-height: 1.7;
+            margin: 0.4rem 0;
+        }
+        .hero-frases p:first-child {
+            color: #e2e8f0;
+            font-size: 1.05rem;
+            font-weight: 500;
+        }
+
+        /* MODAL DONACIÓN */
+        .btn-donar {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #0f172a;
+            border: none;
+            padding: 0.55rem 1.2rem;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            white-space: nowrap;
+        }
+        .btn-donar:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(245,158,11,0.4);
+        }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-box {
+            background: #1e2d4a;
+            border: 1px solid #2d4a7a;
+            border-radius: 12px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 480px;
+            position: relative;
+            color: #e2e8f0;
+        }
+        .modal-box h2 { margin: 0 0 0.4rem; font-size: 1.3rem; }
+        .modal-box .modal-sub { color: #94a3b8; font-size: 0.9rem; margin-bottom: 1.4rem; }
+        .modal-close {
+            position: absolute; top: 1rem; right: 1rem;
+            background: none; border: none; color: #94a3b8;
+            font-size: 1.4rem; cursor: pointer; line-height: 1;
+        }
+        .modal-close:hover { color: #e2e8f0; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.35rem; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 0.6rem 0.8rem;
+            background: #0f172a; border: 1px solid #2d4a7a;
+            border-radius: 6px; color: #e2e8f0; font-size: 0.95rem;
+            box-sizing: border-box;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none; border-color: #06b6d4;
+        }
+        .form-row { display: flex; gap: 0.8rem; }
+        .form-row .form-group { flex: 1; }
+        .btn-confirmar {
+            width: 100%; padding: 0.75rem;
+            background: linear-gradient(135deg, #06b6d4, #0891b2);
+            color: #fff; border: none; border-radius: 8px;
+            font-size: 1rem; font-weight: 700; cursor: pointer;
+            margin-top: 0.5rem; transition: opacity 0.15s;
+        }
+        .btn-confirmar:hover { opacity: 0.9; }
+
+        /* DATOS BANCARIOS */
+        .datos-banco {
+            display: none;
+            background: #0f172a;
+            border: 1px solid #2d4a7a;
+            border-radius: 10px;
+            padding: 1.4rem;
+            margin-top: 1rem;
+        }
+        .datos-banco.visible { display: block; }
+        .datos-banco h3 { margin: 0 0 1rem; font-size: 1rem; color: #06b6d4; }
+        .dato-item { margin-bottom: 0.7rem; }
+        .dato-item label { display: block; font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+        .dato-item span {
+            font-family: monospace; font-size: 0.95rem; color: #e2e8f0;
+            background: #1e2d4a; padding: 0.2rem 0.5rem;
+            border-radius: 4px; display: inline-block; margin-top: 0.15rem;
+            user-select: all;
+        }
+        .dato-seccion { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid #1e2d4a; }
+        .dato-seccion h4 { margin: 0 0 0.8rem; font-size: 0.9rem; color: #f59e0b; }
+        .gracias-msg { text-align: center; color: #94a3b8; font-size: 0.85rem; margin-top: 1rem; }
+    </style>
 </head>
 <body>
     <header>
         <div class="header-inner">
             <div class="header-brand">
-                <h1>⚖️ Monitor XAI <span class="badge">v1.0</span></h1>
+                <h1>⚖️ Monitor de Contratos y Licitaciones Públicas <span class="badge">v1.0</span></h1>
                 <p>Ph.D. Vicente Humberto Monteverde · Algoritmos contra la Corrupción</p>
             </div>
             <nav>
@@ -19,9 +129,130 @@
                 <a href="/analisis-vivo">🚀 Análisis en Vivo</a>
                 <a href="/documentacion">📖 Documentación</a>
                 <a href="/docs">🔧 API</a>
+                <button class="btn-donar" onclick="abrirModal()">💛 Apoyar este proyecto</button>
             </nav>
         </div>
     </header>
+
+    <!-- FRASES -->
+    <div class="hero-frases" style="margin: 0; border-radius: 0; border-left: none; border-bottom: 1px solid #1e2d4a; padding: 1.2rem 2rem;">
+        <p>Las administraciones públicas están obligadas a publicar sus contratos menores.</p>
+        <p>A lo que no están obligadas es a hacerlo fácil. <strong style="color:#06b6d4">Tu dinero, tu derecho a saber.</strong></p>
+    </div>
+
+    <!-- MODAL DONACIÓN -->
+    <div class="modal-overlay" id="modalDonacion">
+        <div class="modal-box">
+            <button class="modal-close" onclick="cerrarModal()">×</button>
+            <h2>💛 Apoyar este proyecto</h2>
+            <p class="modal-sub">Completá tus datos y te enviamos la información para realizar tu donación.</p>
+
+            <div id="formulario">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nombre</label>
+                        <input type="text" id="nombre" placeholder="Tu nombre">
+                    </div>
+                    <div class="form-group">
+                        <label>Apellido</label>
+                        <input type="text" id="apellido" placeholder="Tu apellido">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="email" placeholder="tu@email.com">
+                </div>
+                <div class="form-group">
+                    <label>¿Desde dónde donás?</label>
+                    <select id="origen" onchange="cambiarOrigen()">
+                        <option value="">— Seleccioná —</option>
+                        <option value="ar">🇦🇷 Desde Argentina</option>
+                        <option value="ext">🌍 From abroad</option>
+                    </select>
+                </div>
+                <button class="btn-confirmar" onclick="mostrarDatos()">Ver datos para transferir →</button>
+            </div>
+
+            <!-- DATOS ARGENTINA -->
+            <div class="datos-banco" id="datosAR">
+                <h3>🇦🇷 Datos para transferencia desde Argentina</h3>
+                <p id="saludoAR" style="color:#06b6d4; font-size:0.9rem; margin-bottom:1rem;"></p>
+
+                <div class="dato-seccion">
+                    <h4>💵 En Pesos</h4>
+                    <div class="dato-item"><label>Alias</label><span>ALGORIT.MONTE.PESOS</span></div>
+                    <div class="dato-item"><label>Tipo</label><span>Caja de Ahorro · Pesos</span></div>
+                    <div class="dato-item"><label>Titular</label><span>Vicente Humberto Monteverde</span></div>
+                </div>
+
+                <div class="dato-seccion">
+                    <h4>💵 En Dólares</h4>
+                    <div class="dato-item"><label>Alias</label><span>ALGO.MONTE.DOLARES</span></div>
+                    <div class="dato-item"><label>Tipo</label><span>Caja de Ahorro · Dólares</span></div>
+                    <div class="dato-item"><label>Titular</label><span>Vicente Humberto Monteverde</span></div>
+                </div>
+
+                <p class="gracias-msg">¡Muchas gracias por apoyar la transparencia! 🙏</p>
+            </div>
+
+            <!-- DATOS EXTERIOR -->
+            <div class="datos-banco" id="datosEXT">
+                <h3>🌍 Wire Transfer — International donation</h3>
+                <p id="saludoEXT" style="color:#06b6d4; font-size:0.9rem; margin-bottom:1rem;"></p>
+
+                <div class="dato-item"><label>Bank</label><span>Banco Santander Montevideo</span></div>
+                <div class="dato-item"><label>Beneficiary</label><span>Vicente Humberto Monteverde</span></div>
+                <div class="dato-item"><label>Address</label><span>Av. Directorio 3024-PB-DTO 04</span></div>
+                <div class="dato-item"><label>Account type</label><span>Savings Account · USD</span></div>
+                <div class="dato-item"><label>Account number</label><span>005200183500</span></div>
+                <div class="dato-item"><label>SWIFT / BIC</label><span>BSCHUYMM</span></div>
+
+                <p class="gracias-msg">Thank you for supporting transparency! 🙏</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function abrirModal() {
+            document.getElementById('modalDonacion').classList.add('open');
+        }
+        function cerrarModal() {
+            document.getElementById('modalDonacion').classList.remove('open');
+            document.getElementById('datosAR').classList.remove('visible');
+            document.getElementById('datosEXT').classList.remove('visible');
+            document.getElementById('formulario').style.display = 'block';
+            document.getElementById('nombre').value = '';
+            document.getElementById('apellido').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('origen').value = '';
+        }
+        function cambiarOrigen() {
+            document.getElementById('datosAR').classList.remove('visible');
+            document.getElementById('datosEXT').classList.remove('visible');
+        }
+        function mostrarDatos() {
+            const nombre = document.getElementById('nombre').value.trim();
+            const apellido = document.getElementById('apellido').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const origen = document.getElementById('origen').value;
+            if (!nombre || !apellido || !email || !origen) {
+                alert('Por favor completá todos los campos.');
+                return;
+            }
+            document.getElementById('formulario').style.display = 'none';
+            if (origen === 'ar') {
+                document.getElementById('saludoAR').textContent = `Hola ${nombre}, usá alguno de estos alias para transferir desde tu homebanking o billetera virtual:`;
+                document.getElementById('datosAR').classList.add('visible');
+            } else {
+                document.getElementById('saludoEXT').textContent = `Hello ${nombre}, please use the following wire transfer details:`;
+                document.getElementById('datosEXT').classList.add('visible');
+            }
+        }
+        // Cerrar modal al hacer click afuera
+        document.getElementById('modalDonacion').addEventListener('click', function(e) {
+            if (e.target === this) cerrarModal();
+        });
+    </script>
 
     <main>
         {% if sin_datos %}

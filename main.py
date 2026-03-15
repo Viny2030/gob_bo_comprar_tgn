@@ -280,6 +280,15 @@ def descargar_articulo():
     return FileResponse(path=ruta, filename="articulo_monteverde_español.docx",
                         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
+@app.get("/api/descargar-instructivo")
+def descargar_instructivo():
+    from fastapi.responses import FileResponse
+    ruta = "instructivo_dashboard.docx"
+    if not os.path.exists(ruta):
+        raise HTTPException(status_code=404, detail="Instructivo no disponible")
+    return FileResponse(path=ruta, filename="Instructivo_Monitor_XAI.docx",
+                        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
 # ─── API LICITACIONES ──────────────────────────────────────────────
 
 @app.post("/api/licitaciones/ejecutar")

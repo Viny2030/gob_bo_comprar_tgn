@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin · Estadísticas de Donaciones</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <style>
+        .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+        .admin-header { margin-bottom: 2rem; border-bottom: 1px solid #1e2d4a; padding-bottom: 1rem; }
+        .admin-header h1 { font-size: 1.4rem; color: #e2e8f0; }
+        .admin-header p { color: #64748b; font-size: 0.85rem; margin-top: 0.3rem; }
+        .login-box { background: #0f1628; border: 1px solid #1e2d4a; border-radius: 12px; padding: 2rem; max-width: 400px; margin: 4rem auto; }
+        .login-box h2 { margin-bottom: 1rem; color: #e2e8f0; }
+        .login-box input { width: 100%; padding: 0.7rem; background: #0a0e1a; border: 1px solid #1e2d4a; border-radius: 6px; color: #e2e8f0; font-size: 0.95rem; margin-bottom: 1rem; box-sizing: border-box; }
+        .login-box input:focus { outline: none; border-color: #06b6d4; }
+        .btn-login { width: 100%; padding: 0.75rem; background: linear-gradient(135deg, #06b6d4, #0891b2); color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .stat-card { background: #0f1628; border: 1px solid #1e2d4a; border-radius: 10px; padding: 1.5rem; text-align: center; }
+        .stat-card .numero { font-size: 2.2rem; font-weight: 700; color: #06b6d4; font-family: monospace; }
+        .stat-card .label { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-top: 0.4rem; }
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+        .chart-box { background: #0f1628; border: 1px solid #1e2d4a; border-radius: 10px; padding: 1.5rem; }
+        .chart-box h3 { font-size: 0.8rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem; }
+        .tabla-recientes { background: #0f1628; border: 1px solid #1e2d4a; border-radius: 10px; padding: 1.5rem; }
+        .tabla-recientes h3 { font-size: 0.8rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem; }
+        .tabla-recientes table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .tabla-recientes th { color: #64748b; text-align: left; padding: 0.5rem 0.8rem; border-bottom: 1px solid #1e2d4a; font-size: 0.75rem; }
+        .tabla-recientes td { padding: 0.6rem 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.03); color: #94a3b8; }
+        .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+        .badge-open { background: rgba(59,130,246,0.15); color: #3b82f6; }
+        .badge-confirm { background: rgba(16,185,129,0.15); color: #10b981; }
+        .badge-view { background: rgba(245,158,11,0.15); color: #f59e0b; }
+        .badge-country { background: rgba(6,182,212,0.15); color: #06b6d4; }
+        .no-datos { text-align: center; color: #64748b; padding: 3rem; }
+        @media (max-width: 700px) { .charts-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+<div class="admin-wrap">
+
+    {% if not autenticado %}
+    <!-- LOGIN -->
+    <div class="login-box">
+        <h2>🔐 Admin · Donaciones</h2>
+        <p style="color:#64748b; font-size:0.85rem; margin-bottom:1.2rem;">Ingresá tu clave de administrador</p>
+        <form method="get" action="/admin">
+            <input type="password" name="key" placeholder="Admin key" autofocus />
+            <button class="btn-login" type="submit">Ingresar →</button>
+        </form>
+    </div>
+
+    {% else %}
+    <!-- HEADER -->
+    <div class="admin-header">
+        <h1>📊 Estadísticas de Donaciones</h1>
+        <p>Panel de administración · <a href="/" style="color:#06b6d4;">← Volver al sitio</a></p>
+    </div>
+
+    {% if not stats %}
+    <div class="no-datos">⚠️ Base de datos no disponible</div>
+
+    {% else %}
+    <!-- MÉTRICAS -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="numero">{{ stats.total }}</div>
+            <div class="label">Total Eventos</div>
+        </div>
+        {% for e in stats.by_event %}
+        <div class="stat-card">
+            <div class="numero">{{ e.n }}</div>
+            <div class="label">{{ e.event_type }}</div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- GRÁFICOS -->
+    <div class="charts-grid">
+        <div class="chart-box">
+            <h3>Eventos por día (últimos 30 días)</h3>
+            <canvas id="chartDaily"></canvas>
+        </div>
+        <div class="chart-box">
+            <h3>Por país</h3>
+            <canvas id="chartPais"></canvas>
+        </div>
+    </div>
+
+    <!-- TABLA RECIENTES -->
+    <div class="tabla-recientes">
+        <h3>Últimos 20 eventos</h3>
+        {% if stats.recientes %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Evento</th>
+                    <th>País</th>
+                    <th>Moneda</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in stats.recientes %}
+                <tr>
+                    <td style="color:#64748b; font-size:0.8rem;">{{ r.created_at }}</td>
+                    <td>
+                        <span class="badge {% if r.event_type == 'confirm' %}badge-confirm{% elif r.event_type == 'open_modal' %}badge-open{% elif r.event_type == 'view_details' %}badge-view{% else %}badge-country{% endif %}">
+                            {{ r.event_type }}
+                        </span>
+                    </td>
+                    <td>{{ r.country }}</td>
+                    <td>{{ r.currency }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="color:#64748b; text-align:center; padding:2rem;">Sin eventos registrados todavía.</p>
+        {% endif %}
+    </div>
+
+    <script>
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = '#1e2d4a';
+
+        const dailyData = {{ stats.daily | tojson }};
+        if (dailyData.length > 0) {
+            new Chart(document.getElementById('chartDaily'), {
+                type: 'bar',
+                data: {
+                    labels: dailyData.map(d => d.day),
+                    datasets: [{ label: 'Eventos', data: dailyData.map(d => d.n),
+                        backgroundColor: 'rgba(6,182,212,0.6)', borderRadius: 4 }]
+                },
+                options: { responsive: true, plugins: { legend: { display: false } },
+                    scales: { x: { ticks: { maxRotation: 45 } } } }
+            });
+        }
+
+        const paisData = {{ stats.by_country | tojson }};
+        if (paisData.length > 0) {
+            new Chart(document.getElementById('chartPais'), {
+                type: 'doughnut',
+                data: {
+                    labels: paisData.map(d => d.country),
+                    datasets: [{ data: paisData.map(d => d.n),
+                        backgroundColor: ['#3b82f6','#06b6d4','#10b981','#f59e0b'],
+                        borderWidth: 2, borderColor: '#0f1628' }]
+                },
+                options: { responsive: true, plugins: { legend: { position: 'bottom',
+                    labels: { color: '#94a3b8', padding: 12 } } }, cutout: '60%' }
+            });
+        }
+    </script>
+    {% endif %}
+    {% endif %}
+
+</div>
+</body>
+</html>

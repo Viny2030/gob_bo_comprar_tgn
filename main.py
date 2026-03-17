@@ -462,3 +462,36 @@ async def donation_stats(
 @app.get("/health")
 async def health():
     return {"status": "ok", "db": db_pool is not None, "ts": datetime.now(timezone.utc).isoformat()}
+
+# ── Admin Dashboard (NUEVO) ──────────────────────────────────────────────────
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_dashboard(request: Request, key: str = ""):
+    if not ADMIN_KEY or key != ADMIN_KEY:
+        return templates.TemplateResponse("admin.html", {
+            "request": request,
+            "autenticado": False,
+            "stats": None,
+        })
+    stats = None
+    if db_pool:
+        async with db_pool.acquire() as conn:
+            total       = await conn.fetchval("SELECT COUNT(*) FROM donation_events")
+            by_event    = await conn.fetch("SELECT event_type, COUNT(*) as n FROM donation_events GROUP BY event_type ORDER BY n DESC")
+            by_country  = await conn.fetch("SELECT country, COUNT(*) as n FROM donation_events WHERE country IS NOT NULL GROUP BY country ORDER BY n DESC")
+            by_currency = await conn.fetch("SELECT currency, COUNT(*) as n FROM donation_events WHERE currency IS NOT NULL GROUP BY currency ORDER BY n DESC")
+            daily       = await conn.fetch("SELECT DATE(created_at AT TIME ZONE 'America/Argentina/Buenos_Aires') as day, COUNT(*) as n FROM donation_events GROUP BY day ORDER BY day DESC LIMIT 30")
+            recientes   = await conn.fetch("SELECT event_type, country, currency, created_at FROM donation_events ORDER BY created_at DESC LIMIT 20")
+        stats = {
+            "total": total,
+            "by_event": [dict(r) for r in by_event],
+            "by_country": [dict(r) for r in by_country],
+            "by_currency": [dict(r) for r in by_currency],
+            "daily": [{"day": str(r["day"]), "n": r["n"]} for r in daily],
+            "recientes": [{"event_type": r["event_type"], "country": r["country"] or "-", "currency": r["currency"] or "-", "created_at": r["created_at"].strftime("%d/%m %H:%M")} for r in recientes],
+        }
+    return templates.TemplateResponse("admin.html", {
+        "request": request,
+        "autenticado": True,
+        "stats": stats,
+        "admin_key": key,
+    })

@@ -51,6 +51,9 @@
         </form>
     </div>
 
+    {% elif not stats %}
+    <div class="no-datos">⚠️ Base de datos no disponible</div>
+
     {% else %}
     <!-- HEADER -->
     <div class="admin-header">
@@ -58,10 +61,6 @@
         <p>Panel de administración · <a href="/" style="color:#06b6d4;">← Volver al sitio</a></p>
     </div>
 
-    {% if not stats %}
-    <div class="no-datos">⚠️ Base de datos no disponible</div>
-
-    {% else %}
     <!-- MÉTRICAS -->
     <div class="stats-grid">
         <div class="stat-card">
@@ -95,10 +94,7 @@
         <table>
             <thead>
                 <tr>
-                    <th>Fecha</th>
-                    <th>Evento</th>
-                    <th>País</th>
-                    <th>Moneda</th>
+                    <th>Fecha</th><th>Evento</th><th>País</th><th>Moneda</th>
                 </tr>
             </thead>
             <tbody>
@@ -106,7 +102,11 @@
                 <tr>
                     <td style="color:#64748b; font-size:0.8rem;">{{ r.created_at }}</td>
                     <td>
-                        <span class="badge {% if r.event_type == 'confirm' %}badge-confirm{% elif r.event_type == 'open_modal' %}badge-open{% elif r.event_type == 'view_details' %}badge-view{% else %}badge-country{% endif %}">
+                        <span class="badge
+                            {%- if r.event_type == 'confirm' %} badge-confirm
+                            {%- elif r.event_type == 'open_modal' %} badge-open
+                            {%- elif r.event_type == 'view_details' %} badge-view
+                            {%- else %} badge-country{% endif %}">
                             {{ r.event_type }}
                         </span>
                     </td>
@@ -121,17 +121,23 @@
         {% endif %}
     </div>
 
+    <!-- datos para JS — sin llaves dobles dentro de script -->
+    <div id="daily-data" style="display:none">{{ stats.daily | tojson }}</div>
+    <div id="pais-data" style="display:none">{{ stats.by_country | tojson }}</div>
+
     <script>
         Chart.defaults.color = '#94a3b8';
         Chart.defaults.borderColor = '#1e2d4a';
 
-        const dailyData = {{ stats.daily | tojson }};
+        var dailyData = JSON.parse(document.getElementById('daily-data').textContent);
+        var paisData  = JSON.parse(document.getElementById('pais-data').textContent);
+
         if (dailyData.length > 0) {
             new Chart(document.getElementById('chartDaily'), {
                 type: 'bar',
                 data: {
-                    labels: dailyData.map(d => d.day),
-                    datasets: [{ label: 'Eventos', data: dailyData.map(d => d.n),
+                    labels: dailyData.map(function(d){ return d.day; }),
+                    datasets: [{ label: 'Eventos', data: dailyData.map(function(d){ return d.n; }),
                         backgroundColor: 'rgba(6,182,212,0.6)', borderRadius: 4 }]
                 },
                 options: { responsive: true, plugins: { legend: { display: false } },
@@ -139,13 +145,12 @@
             });
         }
 
-        const paisData = {{ stats.by_country | tojson }};
         if (paisData.length > 0) {
             new Chart(document.getElementById('chartPais'), {
                 type: 'doughnut',
                 data: {
-                    labels: paisData.map(d => d.country),
-                    datasets: [{ data: paisData.map(d => d.n),
+                    labels: paisData.map(function(d){ return d.country; }),
+                    datasets: [{ data: paisData.map(function(d){ return d.n; }),
                         backgroundColor: ['#3b82f6','#06b6d4','#10b981','#f59e0b'],
                         borderWidth: 2, borderColor: '#0f1628' }]
                 },
@@ -154,7 +159,6 @@
             });
         }
     </script>
-    {% endif %}
     {% endif %}
 
 </div>

@@ -1,254 +1,498 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>⚖️ Monitor de Contratos y Licitaciones Públicas v1.0</title>
-  <link rel="stylesheet" href="/static/style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Contratos y Licitaciones Públicas - Ph.D. Monteverde</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <script>
+      (function(){
+        emailjs.init({ publicKey: "dkqfVFcSh7uyG0PIc" });
+      })();
+    </script>
 
-  <!-- ── Google Analytics 4 ─────────────────────────────────────────── -->
-  {% if ga_id %}
-  <script async src="https://www.googletagmanager.com/gtag/js?id={{ ga_id }}"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){ dataLayer.push(arguments); }
-    gtag('js', new Date());
-    gtag('config', '{{ ga_id }}', {
-      page_title: 'Dashboard Principal',
-      page_location: window.location.href,
-    });
+    <!-- ── Google Analytics 4 ──────────────────────────────────────── -->
+    {% if ga_id %}
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ ga_id }}"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){ dataLayer.push(arguments); }
+      gtag('js', new Date());
+      gtag('config', '{{ ga_id }}', {
+        page_title: 'Dashboard Principal',
+        page_location: window.location.href,
+      });
+      window._gaClientId = null;
+      gtag('get', '{{ ga_id }}', 'client_id', function(clientId){
+        window._gaClientId = clientId;
+      });
+    </script>
+    {% endif %}
 
-    /* Expone el GA client_id para server-side tracking */
-    window._gaClientId = null;
-    gtag('get', '{{ ga_id }}', 'client_id', function(clientId){
-      window._gaClientId = clientId;
-    });
-  </script>
-  {% endif %}
+    <style>
+    {% raw %}
+        .hero-frases {
+            background: linear-gradient(135deg, #0f172a 0%, #1e2d4a 100%);
+            border-left: 4px solid var(--accent-cyan, #06b6d4);
+            padding: 1.5rem 2rem;
+            margin: 1.5rem 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .hero-frases p {
+            color: #cbd5e1;
+            font-size: 1rem;
+            line-height: 1.7;
+            margin: 0.4rem 0;
+        }
+        .hero-frases p:first-child {
+            color: #e2e8f0;
+            font-size: 1.05rem;
+            font-weight: 500;
+        }
+
+        /* MODAL DONACIÓN */
+        .btn-donar {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #0f172a;
+            border: none;
+            padding: 0.55rem 1.2rem;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            white-space: nowrap;
+        }
+        .btn-donar:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 14px rgba(245,158,11,0.4);
+        }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-box {
+            background: #1e2d4a;
+            border: 1px solid #2d4a7a;
+            border-radius: 12px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 480px;
+            position: relative;
+            color: #e2e8f0;
+        }
+        .modal-box h2 { margin: 0 0 0.4rem; font-size: 1.3rem; }
+        .modal-box .modal-sub { color: #94a3b8; font-size: 0.9rem; margin-bottom: 1.4rem; }
+        .modal-close {
+            position: absolute; top: 1rem; right: 1rem;
+            background: none; border: none; color: #94a3b8;
+            font-size: 1.4rem; cursor: pointer; line-height: 1;
+        }
+        .modal-close:hover { color: #e2e8f0; }
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; font-size: 0.85rem; color: #94a3b8; margin-bottom: 0.35rem; }
+        .form-group input, .form-group select {
+            width: 100%; padding: 0.6rem 0.8rem;
+            background: #0f172a; border: 1px solid #2d4a7a;
+            border-radius: 6px; color: #e2e8f0; font-size: 0.95rem;
+            box-sizing: border-box;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none; border-color: #06b6d4;
+        }
+        .form-row { display: flex; gap: 0.8rem; }
+        .form-row .form-group { flex: 1; }
+        .btn-confirmar {
+            width: 100%; padding: 0.75rem;
+            background: linear-gradient(135deg, #06b6d4, #0891b2);
+            color: #fff; border: none; border-radius: 8px;
+            font-size: 1rem; font-weight: 700; cursor: pointer;
+            margin-top: 0.5rem; transition: opacity 0.15s;
+        }
+        .btn-confirmar:hover { opacity: 0.9; }
+
+        /* DATOS BANCARIOS */
+        .datos-banco {
+            display: none;
+            background: #0f172a;
+            border: 1px solid #2d4a7a;
+            border-radius: 10px;
+            padding: 1.4rem;
+            margin-top: 1rem;
+        }
+        .datos-banco.visible { display: block; }
+        .datos-banco h3 { margin: 0 0 1rem; font-size: 1rem; color: #06b6d4; }
+        .dato-item { margin-bottom: 0.7rem; }
+        .dato-item label { display: block; font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }
+        .dato-item span {
+            font-family: monospace; font-size: 0.95rem; color: #e2e8f0;
+            background: #1e2d4a; padding: 0.2rem 0.5rem;
+            border-radius: 4px; display: inline-block; margin-top: 0.15rem;
+            user-select: all;
+        }
+        .dato-seccion { margin-top: 1.2rem; padding-top: 1rem; border-top: 1px solid #1e2d4a; }
+        .dato-seccion h4 { margin: 0 0 0.8rem; font-size: 0.9rem; color: #f59e0b; }
+        .gracias-msg { text-align: center; color: #94a3b8; font-size: 0.85rem; margin-top: 1rem; }
+    {% endraw %}
+    </style>
 </head>
 <body>
-
-<!-- ── NAV ───────────────────────────────────────────────────────────────── -->
-<nav class="navbar">
-  <div class="nav-brand">
-    <span class="nav-logo">⚖️</span>
-    <span>Monitor de Contratos y Licitaciones Públicas v1.0</span>
-  </div>
-  <div class="nav-subtitle">Ph.D. Vicente Humberto Monteverde · Algoritmos contra la Corrupción</div>
-  <div class="nav-links">
-    <a href="/" class="nav-link active">📊 Dashboard</a>
-    <a href="/analisis-vivo" class="nav-link">🚀 Análisis en Vivo</a>
-    <a href="/documentacion" class="nav-link">📖 Documentación</a>
-    <a href="/docs" class="nav-link">🔧 API</a>
-    <button class="btn-donate" onclick="openDonationModal()">💛 Apoyar este proyecto</button>
-  </div>
-</nav>
-
-<!-- ── HERO ──────────────────────────────────────────────────────────────── -->
-<section class="hero">
-  <p>Las administraciones públicas están obligadas a la transparencia.</p>
-  <p>Tenemos derecho a la información pública. <strong>Tenés derecho a saber qué se hace con tu dinero.</strong></p>
-</section>
-
-<!-- ── MODAL DONACIÓN ────────────────────────────────────────────────────── -->
-<div id="donationModal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-  <div class="modal-box">
-    <button class="modal-close" onclick="closeDonationModal()" aria-label="Cerrar">×</button>
-    <h2 id="modalTitle">💛 Apoyar este proyecto</h2>
-    <p>Completá tus datos y te enviamos la información para realizar tu donación.</p>
-
-    <!-- Formulario de captura (sin acción de servidor, solo dispara modal siguiente) -->
-    <div class="donation-form">
-      <input type="text"  id="donorFirst" placeholder="Nombre" />
-      <input type="text"  id="donorLast"  placeholder="Apellido" />
-      <input type="email" id="donorEmail" placeholder="Email" />
-      <select id="donorCountry" onchange="onCountrySelect(this.value)">
-        <option value="">— Seleccioná —</option>
-        <option value="AR">🇦🇷 Desde Argentina</option>
-        <option value="abroad">🌍 From abroad</option>
-      </select>
-      <button class="btn-primary" onclick="showTransferInfo()">Ver datos para transferir →</button>
-    </div>
-
-    <!-- Datos AR -->
-    <div id="infoAR" class="transfer-info" style="display:none">
-      <h3>🇦🇷 Datos para transferencia desde Argentina</h3>
-      <div class="transfer-grid">
-        <div class="transfer-card">
-          <h4>💵 En Pesos</h4>
-          <table>
-            <tr><th>Alias</th><td>ALGORIT.MONTE.PESOS</td></tr>
-            <tr><th>Tipo</th><td>Caja de Ahorro · Pesos</td></tr>
-            <tr><th>Titular</th><td>Vicente Humberto Monteverde</td></tr>
-          </table>
+    <header>
+        <div class="header-inner">
+            <div class="header-brand">
+                <h1>⚖️ Monitor de Contratos y Licitaciones Públicas <span class="badge">v1.0</span></h1>
+                <p>Ph.D. Vicente Humberto Monteverde · Algoritmos contra la Corrupción</p>
+            </div>
+            <nav>
+                <a href="/" class="active">📊 Dashboard</a>
+                <a href="/analisis-vivo">🚀 Análisis en Vivo</a>
+                <a href="/documentacion">📖 Documentación</a>
+                <a href="/docs">🔧 API</a>
+                <button class="btn-donar" onclick="abrirModal()">💛 Apoyar este proyecto</button>
+            </nav>
         </div>
-        <div class="transfer-card">
-          <h4>💵 En Dólares</h4>
-          <table>
-            <tr><th>Alias</th><td>ALGO.MONTE.DOLARES</td></tr>
-            <tr><th>Tipo</th><td>Caja de Ahorro · Dólares</td></tr>
-            <tr><th>Titular</th><td>Vicente Humberto Monteverde</td></tr>
-          </table>
+    </header>
+
+    <!-- FRASES -->
+    <div class="hero-frases" style="margin: 0; border-radius: 0; border-left: none; border-bottom: 1px solid #1e2d4a; padding: 1.2rem 2rem;">
+        <p>Las administraciones públicas están obligadas a la transparencia.</p>
+        <p>Tenemos derecho a la información pública. <strong style="color:#06b6d4">Tenés derecho a saber qué se hace con tu dinero.</strong></p>
+    </div>
+
+    <!-- MODAL DONACIÓN -->
+    <div class="modal-overlay" id="modalDonacion">
+        <div class="modal-box">
+            <button class="modal-close" onclick="cerrarModal()">×</button>
+            <h2>💛 Apoyar este proyecto</h2>
+            <p class="modal-sub">Completá tus datos y te enviamos la información para realizar tu donación.</p>
+
+            <div id="formulario">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nombre</label>
+                        <input type="text" id="nombre" placeholder="Tu nombre">
+                    </div>
+                    <div class="form-group">
+                        <label>Apellido</label>
+                        <input type="text" id="apellido" placeholder="Tu apellido">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="email" placeholder="tu@email.com">
+                </div>
+                <div class="form-group">
+                    <label>¿Desde dónde donás?</label>
+                    <select id="origen" onchange="cambiarOrigen()">
+                        <option value="">— Seleccioná —</option>
+                        <option value="ar">🇦🇷 Desde Argentina</option>
+                        <option value="ext">🌍 From abroad</option>
+                    </select>
+                </div>
+                <button class="btn-confirmar" onclick="mostrarDatos()">Ver datos para transferir →</button>
+            </div>
+
+            <!-- DATOS ARGENTINA -->
+            <div class="datos-banco" id="datosAR">
+                <h3>🇦🇷 Datos para transferencia desde Argentina</h3>
+                <p id="saludoAR" style="color:#06b6d4; font-size:0.9rem; margin-bottom:1rem;"></p>
+
+                <div class="dato-seccion">
+                    <h4>💵 En Pesos</h4>
+                    <div class="dato-item"><label>Alias</label><span>ALGORIT.MONTE.PESOS</span></div>
+                    <div class="dato-item"><label>Tipo</label><span>Caja de Ahorro · Pesos</span></div>
+                    <div class="dato-item"><label>Titular</label><span>Vicente Humberto Monteverde</span></div>
+                </div>
+
+                <div class="dato-seccion">
+                    <h4>💵 En Dólares</h4>
+                    <div class="dato-item"><label>Alias</label><span>ALGO.MONTE.DOLARES</span></div>
+                    <div class="dato-item"><label>Tipo</label><span>Caja de Ahorro · Dólares</span></div>
+                    <div class="dato-item"><label>Titular</label><span>Vicente Humberto Monteverde</span></div>
+                </div>
+
+                <p class="gracias-msg">¡Muchas gracias por apoyar la transparencia! 🙏</p>
+            </div>
+
+            <!-- DATOS EXTERIOR -->
+            <div class="datos-banco" id="datosEXT">
+                <h3>🌍 Wire Transfer — International donation</h3>
+                <p id="saludoEXT" style="color:#06b6d4; font-size:0.9rem; margin-bottom:1rem;"></p>
+
+                <div class="dato-item"><label>Bank</label><span>Banco Santander Montevideo</span></div>
+                <div class="dato-item"><label>Beneficiary</label><span>Vicente Humberto Monteverde</span></div>
+                <div class="dato-item"><label>Address</label><span>Av. Directorio 3024-PB-DTO 04</span></div>
+                <div class="dato-item"><label>Account type</label><span>Savings Account · USD</span></div>
+                <div class="dato-item"><label>Account number</label><span>005200183500</span></div>
+                <div class="dato-item"><label>SWIFT / BIC</label><span>BSCHUYMM</span></div>
+
+                <p class="gracias-msg">Thank you for supporting transparency! 🙏</p>
+            </div>
         </div>
-      </div>
-      <p class="thanks">¡Muchas gracias por apoyar la transparencia! 🙏</p>
-      <div class="confirm-buttons">
-        <button class="btn-confirm" onclick="trackDonationConfirm('AR','ARS')">✅ Voy a transferir en Pesos</button>
-        <button class="btn-confirm" onclick="trackDonationConfirm('AR','USD')">✅ Voy a transferir en Dólares</button>
-      </div>
     </div>
 
-    <!-- Datos Internacional -->
-    <div id="infoAbroad" class="transfer-info" style="display:none">
-      <h3>🌍 Wire Transfer — International donation</h3>
-      <table class="wire-table">
-        <tr><th>Bank</th><td>Banco Santander Montevideo</td></tr>
-        <tr><th>Beneficiary</th><td>Vicente Humberto Monteverde</td></tr>
-        <tr><th>Address</th><td>Av. Directorio 3024-PB-DTO 04</td></tr>
-        <tr><th>Account type</th><td>Savings Account · USD</td></tr>
-        <tr><th>Account number</th><td>005200183500</td></tr>
-        <tr><th>SWIFT / BIC</th><td>BSCHUYMM</td></tr>
-      </table>
-      <p class="thanks">Thank you for supporting transparency! 🙏</p>
-      <div class="confirm-buttons">
-        <button class="btn-confirm" onclick="trackDonationConfirm('abroad','USD_wire')">✅ I will wire transfer</button>
-      </div>
-    </div>
+    <main>
+        {% if sin_datos %}
+        <section class="aviso-sin-datos">
+            <div class="aviso-box">
+                <h2>📭 Sin datos disponibles</h2>
+                <p>No hay reportes cargados todavía. Para ver datos en el dashboard:</p>
+                <ol>
+                    <li>Ir a <a href="/analisis-vivo" style="color:var(--accent-cyan)">🚀 Análisis en Vivo</a></li>
+                    <li>Hacer clic en <strong>"Iniciar Ciclo de Análisis Completo"</strong></li>
+                    <li>Volver a este dashboard</li>
+                </ol>
+                <a href="/analisis-vivo" class="btn-analisis">🚀 Ir a Análisis en Vivo</a>
+            </div>
+        </section>
+        {% endif %}
 
-  </div>
-</div>
+        <!-- MÉTRICAS -->
+        <section class="metricas">
+            <div class="card">
+                <h3>Procesos Analizados</h3>
+                <span class="numero">{{ total }}</span>
+            </div>
+            <div class="card">
+                <h3>Intensidad Promedio</h3>
+                <span class="numero">{{ indice_prom }}<small style="font-size:1rem;color:var(--text-muted)">/10</small></span>
+            </div>
+            <div class="card alerta">
+                <h3>Alertas Alto Riesgo</h3>
+                <span class="numero">{{ alto_riesgo }}</span>
+            </div>
+            <div class="card">
+                <h3>Total Reportes</h3>
+                <span class="numero">{{ total_reportes }}</span>
+            </div>
+        </section>
 
-<!-- ── MÉTRICAS ───────────────────────────────────────────────────────────── -->
-<section class="metrics-section">
-  <div class="metrics-grid">
-    <div class="metric-card">
-      <div class="metric-value" id="procesos">2</div>
-      <div class="metric-label">Procesos Analizados</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-value" id="intensidad">0/10</div>
-      <div class="metric-label">Intensidad Promedio</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-value" id="alertas">0</div>
-      <div class="metric-label">Alertas Alto Riesgo</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-value" id="reportes">2</div>
-      <div class="metric-label">Total Reportes</div>
-    </div>
-  </div>
-  {% if ultimo_arch %}
-  <p class="last-report">📁 Último reporte: <strong>{{ ultimo_mes }} / {{ ultimo_arch }}</strong></p>
-  {% endif %}
-</section>
+        <!-- ÚLTIMO REPORTE -->
+        <section class="info-reporte">
+            📁 Último reporte: <strong>{{ ultimo_reporte }}</strong>
+        </section>
 
-<!-- ── GRÁFICOS ───────────────────────────────────────────────────────────── -->
-<section class="charts-section">
-  <div class="chart-card">
-    <h3>Distribución por Tipo de Fenómeno</h3>
-    <div id="chartFenomeno" class="chart-placeholder">—</div>
-  </div>
-  <div class="chart-card">
-    <h3>Nivel de Riesgo</h3>
-    <div id="chartRiesgo" class="chart-placeholder">—</div>
-  </div>
-</section>
+        {% if not sin_datos %}
+        <!-- GRÁFICOS -->
+        <section class="graficos">
+            <div class="grafico-container">
+                <h3>Distribución por Tipo de Fenómeno</h3>
+                <canvas id="graficoTipos"></canvas>
+            </div>
+            <div class="grafico-container">
+                <h3>Nivel de Riesgo</h3>
+                <canvas id="graficoRiesgo"></canvas>
+            </div>
+        </section>
 
-<!-- ── TABLA ──────────────────────────────────────────────────────────────── -->
-<section class="table-section">
-  <h3>Detalle del Análisis Algorítmico</h3>
-  <p class="empty-state">No hay reportes disponibles. Ejecute un análisis en vivo.</p>
-</section>
+        <!-- TABLA -->
+        <section class="tabla-container">
+            <h3>Detalle del Análisis Algorítmico</h3>
+            {% if tabla %}
+            <div class="tabla-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nro Proceso</th>
+                            <th>Detalle</th>
+                            <th>Tipo Decisión</th>
+                            <th>Índice</th>
+                            <th>Riesgo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in tabla %}
+                        <tr class="riesgo-{{ row.get('nivel_riesgo_teorico', 'bajo')|lower }}">
+                            <td style="font-family:var(--mono);font-size:0.8rem;color:var(--text-muted)">{{ row.get('nro_proceso', 'n/a') }}</td>
+                            <td class="detalle-col">{{ row.get('detalle', 'n/a') }}</td>
+                            <td>{{ row.get('tipo_decision', 'n/a') }}</td>
+                            <td><strong>{{ row.get('indice_fenomeno_corruptivo', 0) }}</strong></td>
+                            <td>
+                                {% set riesgo = row.get('nivel_riesgo_teorico', 'Bajo') %}
+                                {% if riesgo == 'Alto' %}🔴{% elif riesgo == 'Medio' %}🟡{% else %}🔵{% endif %}
+                                {{ riesgo }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="sin-datos">No hay reportes disponibles. Ejecute un análisis en vivo.</p>
+            {% endif %}
+        </section>
+        {% endif %}
+    </main>
 
-<!-- ── FOOTER ─────────────────────────────────────────────────────────────── -->
-<footer class="site-footer">
-  <p>⚠️ <strong>Aviso:</strong> Esta herramienta es de carácter experimental y académico.
-     Los datos provienen de fuentes públicas oficiales del Estado argentino.
-     Los resultados son indicadores algorítmicos de riesgo — no implican juicio de valor,
-     acusación ni determinación de responsabilidad sobre ninguna empresa, organismo o persona.
-     El objetivo es promover la transparencia y el debate informado sobre el gasto público.</p>
-  <a href="/licitaciones" class="footer-link">🏛️ Licitaciones</a>
-</footer>
+    {% if not sin_datos %}
+    <script>
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = '#1e2d4a';
 
-<!-- ── JS: Modal + Tracking ──────────────────────────────────────────────── -->
-<script>
-/* ── helpers ─────────────────────────────────────────────────────────────── */
-function getGaClientId() {
-  return window._gaClientId || 'unknown';
-}
+        const tipoData = {{ tipo_counts | tojson }};
+        if (Object.keys(tipoData).length > 0) {
+            new Chart(document.getElementById('graficoTipos'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(tipoData),
+                    datasets: [{
+                        label: 'Cantidad',
+                        data: Object.values(tipoData),
+                        backgroundColor: ['#3b82f6','#06b6d4','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899'],
+                        borderRadius: 6,
+                        borderSkipped: false,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: '#1e2d4a' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: '#1e2d4a' }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+        }
 
-async function sendDonationEvent(eventType, country, currency) {
-  try {
-    await fetch('/api/donation-event', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event_type:   eventType,
-        country:      country   || null,
-        currency:     currency  || null,
-        ga_client_id: getGaClientId(),
-        referrer:     document.referrer || null,
-      }),
-    });
-  } catch(e) {
-    console.warn('Donation tracking error:', e);
-  }
-}
+        const riesgoData = {{ riesgo_counts | tojson }};
+        if (Object.keys(riesgoData).length > 0) {
+            new Chart(document.getElementById('graficoRiesgo'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(riesgoData),
+                    datasets: [{
+                        data: Object.values(riesgoData),
+                        backgroundColor: ['#ef4444', '#f59e0b', '#3b82f6'],
+                        borderWidth: 2,
+                        borderColor: '#131d35',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#94a3b8', padding: 16, font: { size: 12 } }
+                        }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+    </script>
+    {% endif %}
 
-function gtag_event(name, params) {
-  if (typeof gtag !== 'undefined') {
-    gtag('event', name, params || {});
-  }
-}
+    <!-- JS modal original + tracking GA4/donaciones -->
+    <script>
+        function getGaClientId() {
+            return window._gaClientId || 'unknown';
+        }
 
-/* ── modal ───────────────────────────────────────────────────────────────── */
-function openDonationModal() {
-  document.getElementById('donationModal').style.display = 'flex';
-  document.body.style.overflow = 'hidden';
-  // Trackear apertura
-  gtag_event('donation_open_modal');
-  sendDonationEvent('open_modal');
-}
+        async function sendDonationEvent(eventType, country, currency) {
+            try {
+                await fetch('/api/donation-event', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        event_type:   eventType,
+                        country:      country  || null,
+                        currency:     currency || null,
+                        ga_client_id: getGaClientId(),
+                        referrer:     document.referrer || null,
+                    }),
+                });
+            } catch(e) {
+                console.warn('Donation tracking error:', e);
+            }
+        }
 
-function closeDonationModal() {
-  document.getElementById('donationModal').style.display = 'none';
-  document.body.style.overflow = '';
-  document.getElementById('infoAR').style.display     = 'none';
-  document.getElementById('infoAbroad').style.display = 'none';
-  document.getElementById('donorCountry').value = '';
-}
+        function gtag_event(name, params) {
+            if (typeof gtag !== 'undefined') gtag('event', name, params || {});
+        }
 
-function onCountrySelect(val) {
-  if (!val) return;
-  gtag_event('donation_select_country', { country: val });
-  sendDonationEvent('select_country', val);
-}
+        function abrirModal() {
+            document.getElementById('modalDonacion').classList.add('open');
+            gtag_event('donation_open_modal');
+            sendDonationEvent('open_modal');
+        }
 
-function showTransferInfo() {
-  const country = document.getElementById('donorCountry').value;
-  if (!country) { alert('Por favor seleccioná desde dónde donás.'); return; }
+        function cerrarModal() {
+            document.getElementById('modalDonacion').classList.remove('open');
+            document.getElementById('datosAR').classList.remove('visible');
+            document.getElementById('datosEXT').classList.remove('visible');
+            document.getElementById('formulario').style.display = 'block';
+            document.getElementById('nombre').value = '';
+            document.getElementById('apellido').value = '';
+            document.getElementById('email').value = '';
+            document.getElementById('origen').value = '';
+        }
 
-  document.getElementById('infoAR').style.display     = country === 'AR'     ? 'block' : 'none';
-  document.getElementById('infoAbroad').style.display = country === 'abroad' ? 'block' : 'none';
+        function cambiarOrigen() {
+            const origen = document.getElementById('origen').value;
+            document.getElementById('datosAR').classList.remove('visible');
+            document.getElementById('datosEXT').classList.remove('visible');
+            if (origen) {
+                gtag_event('donation_select_country', { country: origen });
+                sendDonationEvent('select_country', origen === 'ar' ? 'AR' : 'abroad');
+            }
+        }
 
-  gtag_event('donation_view_details', { country });
-  sendDonationEvent('view_details', country);
-}
+        function mostrarDatos() {
+            const nombre  = document.getElementById('nombre').value.trim();
+            const apellido = document.getElementById('apellido').value.trim();
+            const email   = document.getElementById('email').value.trim();
+            const origen  = document.getElementById('origen').value;
+            if (!nombre || !apellido || !email || !origen) {
+                alert('Por favor completá todos los campos.');
+                return;
+            }
+            const origenTexto = origen === 'ar' ? '🇦🇷 Desde Argentina' : '🌍 From abroad';
+            const country = origen === 'ar' ? 'AR' : 'abroad';
 
-function trackDonationConfirm(country, currency) {
-  gtag_event('donation_confirm', { country, currency });
-  sendDonationEvent('confirm', country, currency);
-  // Feedback visual
-  event.target.textContent = '✅ ¡Registrado! Gracias 🙏';
-  event.target.disabled = true;
-}
+            // Enviar email de notificación (original)
+            emailjs.send("service_72if9r9", "goylprv", {
+                nombre, apellido, email, origen: origenTexto
+            }).then(() => {
+                console.log('Email enviado OK');
+            }).catch((err) => {
+                console.warn('Email no enviado:', err);
+            });
 
-/* Cerrar modal al hacer clic fuera */
-document.getElementById('donationModal').addEventListener('click', function(e) {
-  if (e.target === this) closeDonationModal();
-});
-</script>
+            // Tracking GA4 + DB
+            gtag_event('donation_view_details', { country });
+            sendDonationEvent('view_details', country);
 
+            document.getElementById('formulario').style.display = 'none';
+            if (origen === 'ar') {
+                document.getElementById('saludoAR').textContent = `Hola ${nombre}, usá alguno de estos alias para transferir desde tu homebanking o billetera virtual:`;
+                document.getElementById('datosAR').classList.add('visible');
+            } else {
+                document.getElementById('saludoEXT').textContent = `Hello ${nombre}, please use the following wire transfer details:`;
+                document.getElementById('datosEXT').classList.add('visible');
+            }
+        }
+
+        // Cerrar modal al hacer click afuera
+        document.getElementById('modalDonacion').addEventListener('click', function(e) {
+            if (e.target === this) cerrarModal();
+        });
+    </script>
+
+    <footer style="margin-top:3rem; padding:1.5rem 2rem; border-top:1px solid rgba(255,255,255,0.08); text-align:center;">
+        <p style="font-size:0.75rem; color:#64748b; line-height:1.6; max-width:800px; margin:0 auto;">
+            ⚠️ <strong>Aviso:</strong> Esta herramienta es de carácter experimental y académico. Los datos provienen de fuentes públicas oficiales del Estado argentino.
+            Los resultados son indicadores algorítmicos de riesgo — no implican juicio de valor, acusación ni determinación de responsabilidad sobre ninguna empresa, organismo o persona.
+            El objetivo es promover la transparencia y el debate informado sobre el gasto público.
+        </p>
+        <a href="/licitaciones" style="color:#06b6d4; font-size:0.8rem;">🏛️ Licitaciones</a>
+    </footer>
 </body>
 </html>

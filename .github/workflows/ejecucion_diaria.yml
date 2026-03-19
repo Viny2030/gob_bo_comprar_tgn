@@ -1,17 +1,13 @@
 name: Monitor Diario Integrado BORA y Compras
-
 on:
   schedule:
     - cron: '0 11 * * *'   # 08:00 Argentina (UTC-3)
   workflow_dispatch:
-
 permissions:
   contents: write
-
 jobs:
   run-analysis:
     runs-on: ubuntu-latest
-
     steps:
       - name: Descargar código (Checkout)
         uses: actions/checkout@v4
@@ -39,7 +35,9 @@ jobs:
           git add data/
           git diff --staged --quiet && echo "Sin cambios, nada que commitear" && exit 0
           git commit -m "Reporte Integrado BORA-COMPRAR-TGN: $(date +'%Y-%m-%d')"
+          git pull --rebase origin desarrollo
           git push origin HEAD:desarrollo
           git checkout main
+          git pull --rebase origin main
           git merge desarrollo --no-edit
           git push origin main

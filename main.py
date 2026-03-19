@@ -24,30 +24,12 @@ ADMIN_KEY    = os.getenv("ADMIN_KEY", "")
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ── Lifespan (ciclo diario automático — original intacto) ────────────────────
+# ── DB pool ──────────────────────────────────────────────────────────────────
+db_pool: Optional[asyncpg.Pool] = None
+
+# ── Lifespan — solo PostgreSQL, SIN scraping al arrancar ────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    import threading, time
-    def correr_diario():
-        time.sleep(15)
-        try:
-            print("\n🚀 Iniciando ciclo diario automático...")
-            from diario import (extraer_bora_licitaciones, extraer_bora_adjudicaciones,
-                extraer_comprar, extraer_pagos_tgn, cruzar_fuentes, guardar_excels)
-            df_bora    = extraer_bora_licitaciones()
-            df_adj     = extraer_bora_adjudicaciones(df_bora)
-            df_licit   = (df_bora[df_bora["es_adjudicacion"] == False].copy().reset_index(drop=True)
-                          if not df_bora.empty else pd.DataFrame())
-            df_comprar = extraer_comprar()
-            df_tgn     = extraer_pagos_tgn()
-            df_cruce   = cruzar_fuentes(df_adj, df_comprar, df_tgn)
-            guardar_excels(df_cruce, df_adj, df_licit, df_comprar, df_tgn)
-            print("✅ Ciclo diario automático completado.\n")
-        except Exception as e:
-            print(f"⚠️ Ciclo diario automático falló: {e}\n")
-    threading.Thread(target=correr_diario, daemon=True).start()
-
-    # ── PostgreSQL startup ───────────────────────────────────────────────────
     global db_pool
     if DATABASE_URL:
         try:
@@ -80,9 +62,7 @@ templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 _df_cache = None
 
-# ── DB pool ──────────────────────────────────────────────────────────────────
-db_pool: Optional[asyncpg.Pool] = None
-
+# ── DB helpers ───────────────────────────────────────────────────────────────
 async def get_db() -> Optional[asyncpg.Pool]:
     return db_pool
 
@@ -117,7 +97,7 @@ class DonationEvent(BaseModel):
 def hash_ip(ip: str) -> str:
     return hashlib.sha256(ip.encode()).hexdigest()[:16]
 
-# ── Helpers originales ───────────────────────────────────────────────────────
+# ── Helpers ──────────────────────────────────────────────────────────────────
 def buscar_todos_los_xlsx(base_dir):
     archivos = []
     for root, dirs, files in os.walk(base_dir):
@@ -247,7 +227,7 @@ async def licitaciones(request: Request):
     ga_id = os.getenv("GA_MEASUREMENT_ID", "")
     return templates.TemplateResponse("licitaciones.html", {"request": request, "ga_id": ga_id})
 
-# ── API Status (original) ────────────────────────────────────────────────────
+# ── API Status ───────────────────────────────────────────────────────────────
 @app.get("/api/status")
 def status():
     archivos = buscar_todos_los_xlsx(DATA_DIR)
@@ -397,7 +377,7 @@ def ejecutar_licitaciones(fecha: str = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# ── API Donaciones (NUEVO) ───────────────────────────────────────────────────
+# ── API Donaciones ───────────────────────────────────────────────────────────
 @app.post("/api/donation-event")
 async def record_donation_event(
     event: DonationEvent,
@@ -463,7 +443,7 @@ async def donation_stats(
 async def health():
     return {"status": "ok", "db": db_pool is not None, "ts": datetime.now(timezone.utc).isoformat()}
 
-# ── Admin Dashboard (NUEVO) ──────────────────────────────────────────────────
+# ── Admin Dashboard ──────────────────────────────────────────────────────────
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard(request: Request, key: str = ""):
     if not ADMIN_KEY or key != ADMIN_KEY:

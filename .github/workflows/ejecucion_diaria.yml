@@ -37,7 +37,3 @@ jobs:
           git commit -m "Reporte Integrado BORA-COMPRAR-TGN: $(date +'%Y-%m-%d')"
           git pull --rebase origin desarrollo
           git push origin HEAD:desarrollo
-          git checkout main
-          git pull --rebase origin main
-          git merge desarrollo --no-edit
-          git push origin main

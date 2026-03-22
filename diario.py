@@ -490,6 +490,13 @@ def guardar_excels(df_cruce, df_adjudicaciones, df_licitaciones, df_comprar, df_
         if not df_tgn.empty:
             df_tgn.to_excel(writer, sheet_name="💰 TGN", index=False)
         # Pestaña exclusiva de alertas de riesgo licitatorio
+        hojas_escritas_1 = sum([
+            not df_cruce_con_riesgo.empty or not df_cruce.empty,
+            not df_adjudicaciones.empty,
+            not df_licitaciones.empty,
+            not df_comprar.empty,
+            not df_tgn.empty,
+        ])
         if not df_cruce_con_riesgo.empty:
             cols_riesgo = [
                 "fecha", "organismo_contratante", "tipo_proceso_bora",
@@ -503,6 +510,15 @@ def guardar_excels(df_cruce, df_adjudicaciones, df_licitaciones, df_comprar, df_
                 "indice_riesgo_licit", ascending=False
             )
             df_alertas.to_excel(writer, sheet_name="⚠️ Riesgo Licitatorio", index=False)
+            hojas_escritas_1 += 1
+        # ── Guardia: openpyxl requiere al menos una hoja visible ──
+        if hojas_escritas_1 == 0:
+            pd.DataFrame({
+                "estado":  ["Sin datos — todos los servicios externos fallaron"],
+                "fecha":   [datetime.now().strftime("%Y-%m-%d %H:%M")],
+                "detalle": ["BORA / Comprar / TGN no respondieron. Reintentar mañana."],
+            }).to_excel(writer, sheet_name="Sin Datos", index=False)
+            print("  ⚠️  Todos los scrapers fallaron — se guardó hoja de estado vacío")
     print(f"  ✅ Reporte completo: {archivo1}")
 
     # ── Excel 2: Solo el flujo Licitación→Adjudicación→Pago ──
@@ -540,6 +556,19 @@ def guardar_excels(df_cruce, df_adjudicaciones, df_licitaciones, df_comprar, df_
                 df_alto_riesgo = df_alto_riesgo.sort_values("indice_riesgo_licit", ascending=False)
                 df_alto_riesgo.to_excel(writer, sheet_name="⚠️ Alertas Riesgo", index=False)
 
+        # ── Guardia: openpyxl requiere al menos una hoja visible ──
+        hojas_escritas_2 = sum([
+            not df_adjudicaciones.empty and df_adjudicaciones["cuit_proveedor"].astype(bool).any(),
+            not df_flujo.empty,
+            not df_comprar.empty,
+        ])
+        if hojas_escritas_2 == 0:
+            pd.DataFrame({
+                "estado":  ["Sin datos — todos los servicios externos fallaron"],
+                "fecha":   [datetime.now().strftime("%Y-%m-%d %H:%M")],
+                "detalle": ["BORA / Comprar / TGN no respondieron. Reintentar mañana."],
+            }).to_excel(writer, sheet_name="Sin Datos", index=False)
+
     print(f"  ✅ Flujo licitaciones: {archivo2}")
     return archivo1, archivo2
 
@@ -547,6 +576,15 @@ def guardar_excels(df_cruce, df_adjudicaciones, df_licitaciones, df_comprar, df_
 # EJECUCIÓN PRINCIPAL
 # ─────────────────────────────────────────
 if __name__ == "__main__":
+    # ── Guardia fin de semana ──────────────────────────────────────────────────
+    hoy = datetime.now()
+    if hoy.weekday() >= 5:  # 5=sábado, 6=domingo
+        dia = "sábado" if hoy.weekday() == 5 else "domingo"
+        print(f"⏭️  Hoy es {dia} {hoy.strftime('%Y-%m-%d')} — los organismos no publican en fin de semana.")
+        print("   Script finalizado sin ejecutar scrapers.")
+        exit(0)
+    # ──────────────────────────────────────────────────────────────────────────
+
     print("🚀 Ciclo Integrado: BORA + Comprar + TGN")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
 

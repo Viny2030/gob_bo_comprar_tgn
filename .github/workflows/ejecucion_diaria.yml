@@ -1,13 +1,17 @@
 name: Monitor Diario Integrado BORA y Compras
+
 on:
   schedule:
     - cron: '0 11 * * 1-5' # 08:00 Argentina (UTC-3), lunes a viernes
   workflow_dispatch:
+
 permissions:
   contents: write
+
 jobs:
   run-analysis:
     runs-on: ubuntu-latest
+
     steps:
       - name: Descargar código (Checkout)
         uses: actions/checkout@v4
@@ -25,8 +29,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install pandas requests beautifulsoup4 openpyxl lxml pdfminer.six
 
+      - name: Capturar fecha
+        id: fecha
+        run: echo "fecha=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
       - name: Ejecutar Ciclo Integrado
         run: python diario.py
+        env:
+          TGN_TOKEN: ${{ secrets.TGN_TOKEN }}
 
       - name: Guardar Reporte y Sincronizar
         run: |
@@ -37,3 +47,42 @@ jobs:
           git commit -m "Reporte Integrado BORA-COMPRAR-TGN: $(date +'%Y-%m-%d')"
           git pull --rebase origin desarrollo
           git push origin HEAD:desarrollo
+
+      - name: Notificar exito
+        if: success()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USER }}
+          password: ${{ secrets.MAIL_PASS }}
+          to: ${{ secrets.MAIL_TO }}
+          from: Monitor BORA <${{ secrets.MAIL_USER }}>
+          subject: "Monitor diario OK - ${{ steps.fecha.outputs.fecha }}"
+          body: |
+            El ciclo diario BORA + Comprar + TGN se ejecuto correctamente.
+
+            Ver run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Notificar fallo
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USER }}
+          password: ${{ secrets.MAIL_PASS }}
+          to: ${{ secrets.MAIL_TO }}
+          from: Monitor BORA <${{ secrets.MAIL_USER }}>
+          subject: "Monitor diario FALLO - ${{ steps.fecha.outputs.fecha }}"
+          body: |
+            El ciclo diario fallo y requiere revision.
+
+            Ver logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            Causas comunes:
+            - BORA / Comprar / TGN no respondieron
+            - Error en el codigo de scraping
+            - Problema de autenticacion en el push

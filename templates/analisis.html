@@ -88,6 +88,22 @@
     </header>
 
     <main>
+
+        <!-- BANNER FIN DE SEMANA -->
+        <div id="banner-finde" style="display:none; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.4); border-radius:10px; padding:16px 20px; margin-bottom:24px;">
+            <p style="margin:0; font-size:0.88rem; color:#f59e0b;">
+                📅 <strong>Hoy es fin de semana.</strong> Los organismos del Estado no publican los sábados ni domingos —
+                el scraper no genera datos nuevos. Te recomendamos usar esta herramienta de <strong>lunes a viernes</strong>.
+                Podés ver los datos del último día hábil seleccionando una fecha anterior.
+            </p>
+        </div>
+        <script>
+            // Mostrar banner si es sábado (6) o domingo (0)
+            const diaSemana = new Date().getDay();
+            if (diaSemana === 0 || diaSemana === 6) {
+                document.getElementById('banner-finde').style.display = 'block';
+            }
+        </script>
         <!-- SELECTOR DE DÍA -->
         <section class="selector-dia">
             <h3>📅 Seleccionar Día de Análisis</h3>

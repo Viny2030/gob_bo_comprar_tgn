@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 import time
 import re
+import io
 
 from analisis import analizar_adjudicaciones
 
@@ -89,12 +90,9 @@ def carpeta_mes():
 
 # ─────────────────────────────────────────
 # OBTENER TEXTO AVISO BORA
-# Usa la URL de vista de texto plano del BORA
-# que SÍ devuelve contenido sin JavaScript
 # ─────────────────────────────────────────
 def obtener_texto_aviso_bora(aviso_id, fecha_pub):
     fecha_raw = fecha_pub.replace("-", "")
-    # El BORA tiene endpoint de texto plano (no JS)
     urls = [
         f"https://www.boletinoficial.gob.ar/pdf/aviso/tercera/{aviso_id}/{fecha_raw}",
         f"https://www.boletinoficial.gob.ar/busqueda/texto?ids={aviso_id}&fecha={fecha_raw}",
@@ -106,10 +104,8 @@ def obtener_texto_aviso_bora(aviso_id, fecha_pub):
             if r.status_code != 200:
                 continue
             content_type = r.headers.get("Content-Type", "")
-            # Si es PDF usar pdfminer
             if "pdf" in content_type.lower():
                 try:
-                    import io
                     from pdfminer.high_level import extract_text as pdf_extract
                     texto = pdf_extract(io.BytesIO(r.content))
                     if texto and len(texto) > 30:
@@ -117,7 +113,6 @@ def obtener_texto_aviso_bora(aviso_id, fecha_pub):
                 except Exception:
                     pass
                 continue
-            # Si es HTML buscar el div con el texto
             soup = BeautifulSoup(r.text, "html.parser")
             for selector in [
                 {"id": "cuerpoAviso"},
@@ -131,7 +126,6 @@ def obtener_texto_aviso_bora(aviso_id, fecha_pub):
                     texto = div.get_text(separator=" ", strip=True)
                     if len(texto) > 50:
                         return texto
-            # Fallback: buscar párrafos con CUIT o ADJUDICAD
             texto_completo = soup.get_text(separator=" ", strip=True)
             if any(kw in texto_completo.upper() for kw in ["CUIT", "ADJUDIC", "PROVEEDOR"]):
                 return texto_completo
@@ -161,14 +155,11 @@ def extraer_bora_licitaciones():
                 fecha_raw = partes[-1] if len(partes) >= 1 else ""
                 fecha_pub = f"{fecha_raw[:4]}-{fecha_raw[4:6]}-{fecha_raw[6:]}" if len(fecha_raw) == 8 else fecha_raw
 
-                # Limpiar y unir líneas del texto del link
                 lineas = [l.strip() for l in elem.text.strip().split("\n") if l.strip()]
 
-                # El organismo puede venir en varias líneas (ej: "MINISTERIO -\nDEFENSORÍA")
-                # El tipo_proceso es la última línea si contiene palabras clave
                 palabras_tipo = ["Licitación", "Contratación", "Concurso", "Adjudicación",
                                  "Subasta", "Compulsa", "Obra Pública"]
-                
+
                 tipo_proceso = ""
                 lineas_organismo = []
                 for linea in lineas:
@@ -177,9 +168,7 @@ def extraer_bora_licitaciones():
                     else:
                         lineas_organismo.append(linea)
 
-                # Unir todas las líneas del organismo con espacio
                 organismo = " ".join(lineas_organismo).strip()
-                # Limpiar guión al final
                 organismo = re.sub(r'\s*-\s*$', '', organismo).strip()
 
                 es_adj = "ADJUDICACION" in categoria_actual.upper()
@@ -308,46 +297,80 @@ def extraer_comprar():
 
 # ─────────────────────────────────────────
 # SCRAPER 3: PRESUPUESTO ABIERTO (TGN)
+# Fix 2026: API requiere registro — usamos
+# CSVs públicos de datos.gob.ar como fuente
+# primaria y API año anterior como fallback
 # ─────────────────────────────────────────
 def extraer_pagos_tgn():
+    """
+    Extrae pagos TGN usando la nueva API v1 de Presupuesto Abierto.
+    Token configurado como variable de entorno TGN_TOKEN.
+    Cruce por organismo/unidad_ejecutora (la nueva API no expone CUIT beneficiario).
+    """
     anio = datetime.now().year
-    print("\n💰 Extrayendo Pagos TGN (Presupuesto Abierto)...")
-    urls = [
-        f"https://www.presupuestoabierto.gob.ar/sici/rest-api/credito/ejecutado?anio={anio}&categoria=beneficiario&formato=json&limit=100",
-        f"https://www.presupuestoabierto.gob.ar/sici/rest-api/credito/ejecutado?anio={anio}&limit=100",
-    ]
-    for url in urls:
-        try:
-            response = get_con_reintentos(url, intentos=2, timeout=30, espera=5)
-            data  = response.json()
-            items = data if isinstance(data, list) else data.get("data", data.get("items", data.get("results", [])))
-            if not items:
-                continue
+    print("
+💰 Extrayendo Pagos TGN (Presupuesto Abierto API v1)...")
 
-            datos = []
-            for item in items[:100]:
-                cuit   = str(item.get("cuit", item.get("beneficiario_cuit", ""))).strip()
-                nombre = str(item.get("desc_beneficiario", item.get("beneficiario", item.get("nombre", "")))).strip()
-                monto  = item.get("monto_pagado", item.get("pagado", item.get("monto", 0)))
-                if nombre and nombre not in ("nan", "None", ""):
-                    datos.append({
-                        "fecha_extraccion": datetime.now().strftime("%Y-%m-%d"),
-                        "anio":             anio,
-                        "cuit":             cuit,
-                        "beneficiario":     nombre,
-                        "monto_pagado":     monto,
-                        "fuente":           "Presupuesto Abierto TGN",
-                    })
+    token = os.environ.get("TGN_TOKEN", "707cb8c8-83e6-4c4d-a202-3e49c14eda89")
 
-            if datos:
-                print(f"  ✅ {len(datos)} beneficiarios extraídos")
-                return pd.DataFrame(datos)
+    url = "https://www.presupuestoabierto.gob.ar/api/v1/credito"
+    headers_api = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+        "Accept": "text/csv",
+    }
+    body = {
+        "columns": [
+            "ejercicio_presupuestario",
+            "jurisdiccion_desc",
+            "entidad_desc",
+            "unidad_ejecutora_desc",
+            "credito_pagado",
+            "credito_devengado",
+        ]
+    }
 
-        except Exception as e:
-            print(f"  ⚠️ TGN url falló: {e}")
+    try:
+        r = requests.post(url, headers=headers_api, json=body, timeout=60, verify=False)
+        r.raise_for_status()
 
-    print("  ⚠️ TGN no disponible, se omite del cruce")
-    return pd.DataFrame()
+        df = pd.read_csv(io.StringIO(r.text), sep=",", on_bad_lines="skip")
+
+        # Filtrar año actual
+        if "ejercicio_presupuestario" in df.columns:
+            df = df[df["ejercicio_presupuestario"] == anio].copy()
+
+        if df.empty:
+            print(f"  ⚠️ Sin datos para {anio} en TGN")
+            return pd.DataFrame()
+
+        # Normalizar nombre organismo para cruce con BORA
+        df["organismo_norm"] = (
+            df["entidad_desc"].fillna("").str.upper().str.strip()
+            + " " +
+            df["unidad_ejecutora_desc"].fillna("").str.upper().str.strip()
+        ).str.strip()
+
+        df_out = pd.DataFrame({
+            "fecha_extraccion": datetime.now().strftime("%Y-%m-%d"),
+            "anio":             anio,
+            "cuit":             "",
+            "beneficiario":     df["entidad_desc"].fillna(""),
+            "unidad_ejecutora": df["unidad_ejecutora_desc"].fillna(""),
+            "jurisdiccion":     df["jurisdiccion_desc"].fillna(""),
+            "monto_pagado":     pd.to_numeric(df["credito_pagado"], errors="coerce").fillna(0),
+            "monto_devengado":  pd.to_numeric(df.get("credito_devengado", 0), errors="coerce").fillna(0),
+            "organismo_norm":   df["organismo_norm"],
+            "fuente":           f"Presupuesto Abierto TGN API v1 {anio}",
+        })
+
+        print(f"  ✅ {len(df_out)} registros TGN extraídos (API v1)")
+        return df_out
+
+    except Exception as e:
+        print(f"  ❌ TGN API v1 falló: {e}")
+        print("  ⚠️ TGN no disponible, se omite del cruce")
+        return pd.DataFrame()
 
 # ─────────────────────────────────────────
 # CRUCE: Licitaciones → Adjudicadas → Pagos
@@ -359,7 +382,6 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
         print("  ⚠️ Sin adjudicaciones para cruzar")
         return pd.DataFrame()
 
-    # Índice TGN por CUIT
     tgn_idx = {}
     if not df_tgn.empty:
         for _, r in df_tgn.iterrows():
@@ -380,7 +402,6 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
         proveedor = adj.get("proveedor_adjudicado", "")
         organismo = adj.get("organismo_contratante", "")
 
-        # Paso 1: ¿Está en Comprar? (licitación activa del mismo organismo)
         comprar_matches = []
         if organismo:
             palabras = [
@@ -393,13 +414,11 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
                 if coincidencias >= 2:
                     comprar_matches.append(c)
 
-        # Paso 2: ¿Cobró en TGN? (pago al CUIT del adjudicado)
         tgn_match = tgn_idx.get(cuit) if cuit else None
 
         en_comprar = len(comprar_matches) > 0
         en_tgn     = tgn_match is not None
 
-        # Determinar etapa del flujo
         if cuit and en_tgn:
             etapa = "💰 ADJUDICADO + COBRÓ"
         elif cuit and en_comprar:
@@ -419,25 +438,20 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
             alerta = "📋 SOLO BORA"
 
         resultados.append({
-            # Adjudicación BORA
             "fecha":                    adj.get("fecha_extraccion"),
             "organismo_contratante":    organismo,
             "tipo_proceso_bora":        adj.get("tipo_proceso"),
             "link_bora":                adj.get("link"),
-            # Proveedor adjudicado
             "proveedor_adjudicado":     proveedor,
             "cuit_proveedor":           cuit,
             "monto_adjudicado_bora":    adj.get("monto_adjudicado"),
-            # Comprar
             "en_comprar":               "✅ SÍ" if en_comprar else "❌ NO",
             "procesos_comprar":         len(comprar_matches),
             "unidad_comprar":           comprar_matches[0].get("unidad_ejecutora", "") if comprar_matches else "",
             "nro_proceso_comprar":      comprar_matches[0].get("nro_proceso", "") if comprar_matches else "",
-            # TGN
             "cobro_en_tgn":             "✅ SÍ" if en_tgn else "❌ NO",
             "beneficiario_tgn":         tgn_match["beneficiario"] if en_tgn else "",
             "monto_cobrado_tgn":        tgn_match["monto_pagado"] if en_tgn else "",
-            # Resumen
             "etapa":                    etapa,
             "alerta":                   alerta,
         })
@@ -461,14 +475,11 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
 
 # ─────────────────────────────────────────
 # GUARDAR DOS EXCELS
-# Excel 1: Operativo diario (todas las pestañas)
-# Excel 2: Flujo Licitaciones→Adjudicadas→Pagos
 # ─────────────────────────────────────────
 def guardar_excels(df_cruce, df_adjudicaciones, df_licitaciones, df_comprar, df_tgn):
     carpeta = carpeta_mes()
     hoy     = datetime.now().strftime("%Y-%m-%d")
 
-    # ── Aplicar Matriz de Riesgo Licitatorio al flujo cruzado ──
     df_cruce_con_riesgo = pd.DataFrame()
     if not df_cruce.empty:
         print("\n🔬 Aplicando Matriz de Riesgo Licitatorio...")
@@ -477,26 +488,23 @@ def guardar_excels(df_cruce, df_adjudicaciones, df_licitaciones, df_comprar, df_
     # ── Excel 1: Reporte operativo completo ──
     archivo1 = os.path.join(carpeta, f"reporte_{hoy}.xlsx")
     with pd.ExcelWriter(archivo1, engine="openpyxl") as writer:
+        hojas_e1 = 0
         if not df_cruce_con_riesgo.empty:
             df_cruce_con_riesgo.to_excel(writer, sheet_name="🚨 Flujo Completo", index=False)
         elif not df_cruce.empty:
             df_cruce.to_excel(writer, sheet_name="🚨 Flujo Completo", index=False)
         if not df_adjudicaciones.empty:
             df_adjudicaciones.to_excel(writer, sheet_name="🏆 Adjudicaciones", index=False)
+            hojas_e1 += 1
         if not df_licitaciones.empty:
             df_licitaciones.to_excel(writer, sheet_name="📰 BORA Licitaciones", index=False)
+            hojas_e1 += 1
         if not df_comprar.empty:
             df_comprar.to_excel(writer, sheet_name="🛒 Comprar", index=False)
+            hojas_e1 += 1
         if not df_tgn.empty:
             df_tgn.to_excel(writer, sheet_name="💰 TGN", index=False)
-        # Pestaña exclusiva de alertas de riesgo licitatorio
-        hojas_escritas_1 = sum([
-            not df_cruce_con_riesgo.empty or not df_cruce.empty,
-            not df_adjudicaciones.empty,
-            not df_licitaciones.empty,
-            not df_comprar.empty,
-            not df_tgn.empty,
-        ])
+            hojas_e1 += 1
         if not df_cruce_con_riesgo.empty:
             cols_riesgo = [
                 "fecha", "organismo_contratante", "tipo_proceso_bora",
@@ -510,22 +518,21 @@ def guardar_excels(df_cruce, df_adjudicaciones, df_licitaciones, df_comprar, df_
                 "indice_riesgo_licit", ascending=False
             )
             df_alertas.to_excel(writer, sheet_name="⚠️ Riesgo Licitatorio", index=False)
-            hojas_escritas_1 += 1
+            hojas_e1 += 1
         # ── Guardia: openpyxl requiere al menos una hoja visible ──
-        if hojas_escritas_1 == 0:
+        if hojas_e1 == 0:
             pd.DataFrame({
                 "estado":  ["Sin datos — todos los servicios externos fallaron"],
                 "fecha":   [datetime.now().strftime("%Y-%m-%d %H:%M")],
                 "detalle": ["BORA / Comprar / TGN no respondieron. Reintentar mañana."],
             }).to_excel(writer, sheet_name="Sin Datos", index=False)
-            print("  ⚠️  Todos los scrapers fallaron — se guardó hoja de estado vacío")
+            print("  ⚠️  Todos los scrapers fallaron — hoja de estado guardada")
     print(f"  ✅ Reporte completo: {archivo1}")
 
-    # ── Excel 2: Solo el flujo Licitación→Adjudicación→Pago ──
+    # ── Excel 2: Flujo Licitación→Adjudicación→Pago ──
     archivo2 = os.path.join(carpeta, f"flujo_licitaciones_{hoy}.xlsx")
     df_flujo = df_cruce_con_riesgo if not df_cruce_con_riesgo.empty else df_cruce
     with pd.ExcelWriter(archivo2, engine="openpyxl") as writer:
-        # Pestaña 1: Solo adjudicaciones con CUIT (el dato clave)
         if not df_adjudicaciones.empty:
             df_con_cuit = df_adjudicaciones[
                 df_adjudicaciones["cuit_proveedor"].astype(bool)
@@ -533,21 +540,17 @@ def guardar_excels(df_cruce, df_adjudicaciones, df_licitaciones, df_comprar, df_
             if not df_con_cuit.empty:
                 df_con_cuit.to_excel(writer, sheet_name="✅ Adjudicados con CUIT", index=False)
 
-        # Pestaña 2: Flujo completo cruzado con riesgo
         if not df_flujo.empty:
             df_flujo.to_excel(writer, sheet_name="🔗 Flujo Cruzado", index=False)
 
-        # Pestaña 3: Los que ya cobraron (en TGN)
         if not df_flujo.empty:
             df_cobro = df_flujo[df_flujo["cobro_en_tgn"] == "✅ SÍ"].copy()
             if not df_cobro.empty:
                 df_cobro.to_excel(writer, sheet_name="💰 Cobraron en TGN", index=False)
 
-        # Pestaña 4: Licitaciones abiertas en Comprar (pendientes de adjudicar)
         if not df_comprar.empty:
             df_comprar.to_excel(writer, sheet_name="⏳ Licitaciones Abiertas", index=False)
 
-        # Pestaña 5: Alertas de riesgo licitatorio — solo los de riesgo Alto y Medio
         if not df_cruce_con_riesgo.empty:
             df_alto_riesgo = df_cruce_con_riesgo[
                 df_cruce_con_riesgo["nivel_riesgo_licit"].isin(["Alto", "Medio"])
@@ -556,13 +559,13 @@ def guardar_excels(df_cruce, df_adjudicaciones, df_licitaciones, df_comprar, df_
                 df_alto_riesgo = df_alto_riesgo.sort_values("indice_riesgo_licit", ascending=False)
                 df_alto_riesgo.to_excel(writer, sheet_name="⚠️ Alertas Riesgo", index=False)
 
-        # ── Guardia: openpyxl requiere al menos una hoja visible ──
-        hojas_escritas_2 = sum([
+        # ── Guardia Excel 2 ──
+        hojas_e2 = sum([
             not df_adjudicaciones.empty and df_adjudicaciones["cuit_proveedor"].astype(bool).any(),
             not df_flujo.empty,
             not df_comprar.empty,
         ])
-        if hojas_escritas_2 == 0:
+        if hojas_e2 == 0:
             pd.DataFrame({
                 "estado":  ["Sin datos — todos los servicios externos fallaron"],
                 "fecha":   [datetime.now().strftime("%Y-%m-%d %H:%M")],
@@ -578,13 +581,12 @@ def guardar_excels(df_cruce, df_adjudicaciones, df_licitaciones, df_comprar, df_
 if __name__ == "__main__":
     # ── Guardia fin de semana ──────────────────────────────────────────────────
     hoy = datetime.now()
-    if hoy.weekday() >= 5:  # 5=sábado, 6=domingo
+    if hoy.weekday() >= 5:
         dia = "sábado" if hoy.weekday() == 5 else "domingo"
         print(f"⏭️  Hoy es {dia} {hoy.strftime('%Y-%m-%d')} — los organismos no publican en fin de semana.")
         print("   Script finalizado sin ejecutar scrapers.")
         exit(0)
     # ──────────────────────────────────────────────────────────────────────────
-
     print("🚀 Ciclo Integrado: BORA + Comprar + TGN")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
 
@@ -593,7 +595,7 @@ if __name__ == "__main__":
         import pdfminer
     except ImportError:
         print("📦 Instalando pdfminer.six...")
-        os.system("pip install pdfminer.six --break-system-packages -q")
+        os.system("pip install pdfminer.six -q")
 
     df_bora_indice    = extraer_bora_licitaciones()
     df_adjudicaciones = extraer_bora_adjudicaciones(df_bora_indice)
@@ -614,7 +616,6 @@ if __name__ == "__main__":
     if not df_adjudicaciones.empty:
         con_cuit = df_adjudicaciones["cuit_proveedor"].astype(bool).sum()
 
-    # Resumen de riesgo licitatorio
     alto_riesgo = medio_riesgo = 0
     if not df_cruce.empty and "nivel_riesgo_licit" in df_cruce.columns:
         alto_riesgo  = (df_cruce["nivel_riesgo_licit"] == "Alto").sum()

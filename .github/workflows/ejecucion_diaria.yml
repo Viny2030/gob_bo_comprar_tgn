@@ -1,7 +1,7 @@
 name: Monitor Diario Integrado BORA y Compras
 on:
   schedule:
-    - cron: '0 11 * * *'   # 08:00 Argentina (UTC-3)
+    - cron: '0 11 * * 1-5' # 08:00 Argentina (UTC-3), lunes a viernes
   workflow_dispatch:
 permissions:
   contents: write

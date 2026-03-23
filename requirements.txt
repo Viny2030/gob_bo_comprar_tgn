@@ -19,3 +19,6 @@ lxml>=5.0.0
 
 # ── Pydantic ─────────────────────────────────────────────────────────────────
 pydantic>=2.0.0
+
+# ── Calendario y feriados ─────────────────────────────────────────────────────
+holidays>=0.46               # feriados nacionales Argentina (y otros países)

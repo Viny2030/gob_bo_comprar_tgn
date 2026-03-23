@@ -5,7 +5,7 @@ Módulo adicional de fuentes oficiales para monitor_contratos.
 NO modifica ningún archivo existente del proyecto.
 
 Fuentes cubiertas:
-  1. BORA — Normativa API (argentina.gob.ar/normativa)
+  1. BORA — API JSON (boletinoficial.gob.ar)
   2. COMPR.AR — API CKAN (datos.gob.ar) — histórico 2015-2020
   3. CONTRAT.AR — OCDS obra pública (datos.gob.ar)
   4. TGN — /ejecucion con cuit_beneficiario (Presupuesto Abierto API v1)
@@ -137,7 +137,7 @@ def obtener_bora_normativa_api(
     limit: int = 100,
 ) -> pd.DataFrame:
     """
-    Consulta la API JSON de normativa de argentina.gob.ar.
+    Consulta la API JSON del Boletín Oficial (boletinoficial.gob.ar).
     Es más estable que el scraping directo del HTML de boletinoficial.gob.ar.
 
     Esquema de salida compatible con extraer_bora_licitaciones() de diario.py:
@@ -156,25 +156,33 @@ def obtener_bora_normativa_api(
     fecha_desde = fecha_desde or hoy
     fecha_hasta = fecha_hasta or hoy
 
-    # Endpoint oficial de búsqueda de normativa
-    url = "https://www.argentina.gob.ar/normativa/buscar"
-    params = {
-        "seccion":      seccion,
-        "desde":        fecha_desde.replace("-", "/"),
-        "hasta":        fecha_hasta.replace("-", "/"),
-        "limit":        limit,
-        "offset":       0,
-    }
+    # Endpoint JSON real del Boletín Oficial argentino
+    fecha_raw = hoy.replace("-", "")
+    # Endpoint 1: buscador con filtros (soporta texto, sección, fechas)
+    url_busqueda = "https://www.boletinoficial.gob.ar/secciones/buscador"
+    params_busqueda = {"offset": 0, "limit": limit, "seccion": seccion}
     if texto:
-        params["texto"] = texto
+        params_busqueda["q"] = texto
+    if fecha_desde != hoy:
+        params_busqueda["desde"] = fecha_desde.replace("-", "")
+        params_busqueda["hasta"] = fecha_hasta.replace("-", "")
+    # Endpoint 2: avisos del día por sección (fallback)
+    url_dia = f"https://www.boletinoficial.gob.ar/secciones/secciones.json?date={fecha_raw}"
 
-    print(f"\n📡 BORA Normativa API | sección={seccion} | {fecha_desde} → {fecha_hasta}")
+    print(f"\n📡 BORA API JSON | sección={seccion} | {fecha_desde} → {fecha_hasta}")
     try:
-        r = _get(url, params=params, timeout=30)
-        data = r.json()
+        try:
+            r = _get(url_busqueda, params=params_busqueda, timeout=30)
+            data = r.json()
+        except Exception:
+            r = _get(url_dia, timeout=30)
+            data = r.json()
 
-        # La API puede devolver lista directa o {"results": [...]}
-        registros = data if isinstance(data, list) else data.get("results", data.get("normas", []))
+        # La API puede devolver lista directa o {"avisos": [...]} o {"results": [...]}
+        registros = (
+            data if isinstance(data, list)
+            else data.get("avisos", data.get("results", data.get("normas", [])))
+        )
 
         if not registros:
             print("  ⚠️  Sin resultados en la API de normativa")

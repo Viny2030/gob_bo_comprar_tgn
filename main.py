@@ -199,8 +199,8 @@ async def dashboard(request: Request):
         cols = ["nro_proceso", "detalle", "tipo_decision", "indice_fenomeno_corruptivo", "nivel_riesgo_teorico"]
         tabla = df[[c for c in cols if c in df.columns]].head(50).fillna("n/a").to_dict(orient="records")
     ga_id = os.getenv("GA_MEASUREMENT_ID", "")
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request, "total": total, "indice_prom": indice_prom,
+    return templates.TemplateResponse(request, "dashboard.html", {
+        "total": total, "indice_prom": indice_prom,
         "alto_riesgo": alto_riesgo, "total_reportes": len(archivos),
         "tipo_counts": tipo_counts, "riesgo_counts": riesgo_counts,
         "tabla": tabla, "sin_datos": df.empty,
@@ -210,7 +210,7 @@ async def dashboard(request: Request):
 
 @app.get("/analisis-vivo", response_class=HTMLResponse)
 async def analisis_vivo(request: Request):
-    return templates.TemplateResponse("analisis.html", {"request": request})
+    return templates.TemplateResponse(request, "analisis.html")
 
 @app.get("/documentacion", response_class=HTMLResponse)
 async def documentacion(request: Request):
@@ -218,14 +218,14 @@ async def documentacion(request: Request):
     escenarios = [{"nombre": k, "transferencia": v["transferencia"], "peso": v["peso"]}
                   for k, v in MATRIZ_TEORICA.items()]
     ga_id = os.getenv("GA_MEASUREMENT_ID", "")
-    return templates.TemplateResponse("documentacion.html", {
-        "request": request, "escenarios": escenarios, "ga_id": ga_id,
+    return templates.TemplateResponse(request, "documentacion.html", {
+        "escenarios": escenarios, "ga_id": ga_id,
     })
 
 @app.get("/licitaciones", response_class=HTMLResponse)
 async def licitaciones(request: Request):
     ga_id = os.getenv("GA_MEASUREMENT_ID", "")
-    return templates.TemplateResponse("licitaciones.html", {"request": request, "ga_id": ga_id})
+    return templates.TemplateResponse(request, "licitaciones.html", {"ga_id": ga_id})
 
 # ── API Status ───────────────────────────────────────────────────────────────
 @app.get("/api/status")
@@ -447,8 +447,7 @@ async def health():
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard(request: Request, key: str = ""):
     if not ADMIN_KEY or key != ADMIN_KEY:
-        return templates.TemplateResponse("admin.html", {
-            "request": request,
+        return templates.TemplateResponse(request, "admin.html", {
             "autenticado": False,
             "stats": None,
         })
@@ -469,8 +468,7 @@ async def admin_dashboard(request: Request, key: str = ""):
             "daily": [{"day": str(r["day"]), "n": r["n"]} for r in daily],
             "recientes": [{"event_type": r["event_type"], "country": r["country"] or "-", "currency": r["currency"] or "-", "created_at": r["created_at"].strftime("%d/%m %H:%M")} for r in recientes],
         }
-    return templates.TemplateResponse("admin.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "admin.html", {
         "autenticado": True,
         "stats": stats,
         "admin_key": key,

@@ -231,8 +231,27 @@ async def licitaciones(request: Request):
 @app.get("/api/status")
 def status():
     archivos = buscar_todos_los_xlsx(DATA_DIR)
-    return {"status": "activo", "version": "1.0.0", "data_dir": DATA_DIR,
-            "reportes_en_disco": len(archivos), "cache_activo": _df_cache is not None and not _df_cache.empty}
+    df = cargar_ultimo_reporte()
+    ultimo_reporte = None
+    if archivos:
+        nombre = os.path.basename(archivos[0])
+        ultimo_reporte = nombre.replace("reporte_", "").replace(".xlsx", "")
+    alto_riesgo = 0
+    total_contratos = 0
+    if not df.empty:
+        total_contratos = len(df)
+        if "nivel_riesgo_teorico" in df.columns:
+            alto_riesgo = int(len(df[df["nivel_riesgo_teorico"] == "Alto"]))
+    return {
+        "servicio": "gob_bo_comprar_tgn",
+        "version": "1.0.0",
+        "status": "activo",
+        "ultimo_reporte": ultimo_reporte,
+        "total_contratos": total_contratos,
+        "alertas_alto_riesgo": alto_riesgo,
+        "reportes_en_disco": len(archivos),
+        "mapa_transparencia": "https://mapatransparencia-production.up.railway.app",
+    }
 
 @app.get("/api/reportes")
 def listar_reportes():

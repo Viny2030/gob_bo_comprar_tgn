@@ -297,15 +297,11 @@ def extraer_comprar():
 
 # ─────────────────────────────────────────
 # SCRAPER 3: PRESUPUESTO ABIERTO (TGN)
-# Fix 2026: API requiere registro — usamos
-# CSVs públicos de datos.gob.ar como fuente
-# primaria y API año anterior como fallback
 # ─────────────────────────────────────────
 def extraer_pagos_tgn():
     """
-    Extrae pagos TGN usando la nueva API v1 de Presupuesto Abierto.
-    Token configurado como variable de entorno TGN_TOKEN.
-    Cruce por organismo/unidad_ejecutora (la nueva API no expone CUIT beneficiario).
+    Extrae pagos TGN usando la API v1 de Presupuesto Abierto.
+    Cruce por organismo_norm ya que la API no expone CUIT beneficiario.
     """
     anio = datetime.now().year
     print("\n💰 Extrayendo Pagos TGN (Presupuesto Abierto API v1)...")
@@ -335,7 +331,6 @@ def extraer_pagos_tgn():
 
         df = pd.read_csv(io.StringIO(r.text), sep=",", on_bad_lines="skip")
 
-        # Filtrar año actual
         if "ejercicio_presupuestario" in df.columns:
             df = df[df["ejercicio_presupuestario"] == anio].copy()
 
@@ -353,7 +348,7 @@ def extraer_pagos_tgn():
         df_out = pd.DataFrame({
             "fecha_extraccion": datetime.now().strftime("%Y-%m-%d"),
             "anio":             anio,
-            "cuit":             "",
+            "cuit":             "",   # API v1 no expone CUIT — cruce por organismo
             "beneficiario":     df["entidad_desc"].fillna(""),
             "unidad_ejecutora": df["unidad_ejecutora_desc"].fillna(""),
             "jurisdiccion":     df["jurisdiccion_desc"].fillna(""),
@@ -363,7 +358,23 @@ def extraer_pagos_tgn():
             "fuente":           f"Presupuesto Abierto TGN API v1 {anio}",
         })
 
-        print(f"  ✅ {len(df_out)} registros TGN extraídos (API v1)")
+        # Deduplicar TGN por organismo_norm (sumar montos si hay duplicados)
+        df_out = (
+            df_out.groupby("organismo_norm", as_index=False)
+            .agg({
+                "fecha_extraccion": "first",
+                "anio":             "first",
+                "cuit":             "first",
+                "beneficiario":     "first",
+                "unidad_ejecutora": "first",
+                "jurisdiccion":     "first",
+                "monto_pagado":     "sum",
+                "monto_devengado":  "sum",
+                "fuente":           "first",
+            })
+        )
+
+        print(f"  ✅ {len(df_out)} organismos TGN (deduplicados por nombre)")
         return df_out
 
     except Exception as e:
@@ -373,6 +384,7 @@ def extraer_pagos_tgn():
 
 # ─────────────────────────────────────────
 # CRUCE: Licitaciones → Adjudicadas → Pagos
+# Fix: cruce TGN por organismo + deduplicación
 # ─────────────────────────────────────────
 def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
     print("\n🔗 Cruzando: Licitaciones → Adjudicadas → Pagos...")
@@ -381,11 +393,17 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
         print("  ⚠️ Sin adjudicaciones para cruzar")
         return pd.DataFrame()
 
-    tgn_idx = {}
+    # ── Índice TGN por CUIT (si existe) y por organismo_norm ──────────────
+    tgn_idx_cuit = {}
+    tgn_idx_org  = {}
     if not df_tgn.empty:
         for _, r in df_tgn.iterrows():
-            if r.get("cuit"):
-                tgn_idx[str(r["cuit"])] = r
+            cuit_tgn = str(r.get("cuit", "")).strip()
+            org_norm = str(r.get("organismo_norm", "")).strip()
+            if cuit_tgn:
+                tgn_idx_cuit[cuit_tgn] = r
+            if org_norm and org_norm not in tgn_idx_org:
+                tgn_idx_org[org_norm] = r
 
     comprar_lista = df_comprar.to_dict("records") if not df_comprar.empty else []
 
@@ -395,12 +413,32 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
         "FEDERAL", "REPUBLICA", "ESTADO", "SERVICIO", "OFICINA", "SOCIAL",
     }
 
+    def buscar_tgn_por_organismo(organismo):
+        """Busca en TGN por similitud de nombre — retorna el mejor match único."""
+        if not organismo or not tgn_idx_org:
+            return None
+        palabras = [
+            p for p in normalizar_nombre(organismo).split()
+            if len(p) > 3 and p not in STOP_WORDS
+        ]
+        if not palabras:
+            return None
+        mejor_match = None
+        mejor_score = 0
+        for org_norm, row in tgn_idx_org.items():
+            coincidencias = sum(1 for p in palabras if p in org_norm)
+            if coincidencias > mejor_score and coincidencias >= 2:
+                mejor_score = coincidencias
+                mejor_match = row
+        return mejor_match
+
     resultados = []
     for _, adj in df_adjudicaciones.iterrows():
         cuit      = str(adj.get("cuit_proveedor", "")).strip()
         proveedor = adj.get("proveedor_adjudicado", "")
         organismo = adj.get("organismo_contratante", "")
 
+        # ── Cruce Comprar ──────────────────────────────────────────────────
         comprar_matches = []
         if organismo:
             palabras = [
@@ -413,7 +451,17 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
                 if coincidencias >= 2:
                     comprar_matches.append(c)
 
-        tgn_match = tgn_idx.get(cuit) if cuit else None
+        # ── Cruce TGN: primero por CUIT, luego por organismo ──────────────
+        tgn_match = None
+        metodo_cruce = ""
+        if cuit:
+            tgn_match = tgn_idx_cuit.get(cuit)
+            if tgn_match is not None:
+                metodo_cruce = "CUIT"
+        if tgn_match is None:
+            tgn_match = buscar_tgn_por_organismo(organismo)
+            if tgn_match is not None:
+                metodo_cruce = "organismo"
 
         en_comprar = len(comprar_matches) > 0
         en_tgn     = tgn_match is not None
@@ -431,6 +479,8 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
             alerta = "🚨 FLUJO COMPLETO: BORA→COMPRAR→TGN"
         elif en_tgn and cuit:
             alerta = "🔶 BORA + TGN (cobró)"
+        elif en_tgn:
+            alerta = "🔶 BORA + TGN (por organismo)"
         elif en_comprar:
             alerta = "🔷 BORA + COMPRAR"
         else:
@@ -451,22 +501,32 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
             "cobro_en_tgn":             "✅ SÍ" if en_tgn else "❌ NO",
             "beneficiario_tgn":         tgn_match["beneficiario"] if en_tgn else "",
             "monto_cobrado_tgn":        tgn_match["monto_pagado"] if en_tgn else "",
+            "metodo_cruce_tgn":         metodo_cruce,
             "etapa":                    etapa,
             "alerta":                   alerta,
         })
 
     df = pd.DataFrame(resultados)
+
+    # ── Deduplicar: un organismo+cuit no debe aparecer más de una vez ──────
+    if not df.empty:
+        df = df.drop_duplicates(
+            subset=["organismo_contratante", "cuit_proveedor", "fecha"],
+            keep="first"
+        ).reset_index(drop=True)
+
     if not df.empty:
         orden = {
             "🚨 FLUJO COMPLETO: BORA→COMPRAR→TGN": 0,
             "🔶 BORA + TGN (cobró)":               1,
-            "🔷 BORA + COMPRAR":                   2,
-            "📋 SOLO BORA":                        3,
+            "🔶 BORA + TGN (por organismo)":        2,
+            "🔷 BORA + COMPRAR":                   3,
+            "📋 SOLO BORA":                        4,
         }
         df["_orden"] = df["alerta"].map(orden).fillna(9)
         df = df.sort_values("_orden").drop(columns=["_orden"]).reset_index(drop=True)
 
-    print(f"  ✅ {len(df)} registros en el flujo")
+    print(f"  ✅ {len(df)} registros en el flujo (deduplicados)")
     if not df.empty:
         for alerta, count in df["alerta"].value_counts().items():
             print(f"     {alerta}: {count}")
@@ -518,7 +578,6 @@ def guardar_excels(df_cruce, df_adjudicaciones, df_licitaciones, df_comprar, df_
             )
             df_alertas.to_excel(writer, sheet_name="⚠️ Riesgo Licitatorio", index=False)
             hojas_e1 += 1
-        # ── Guardia: openpyxl requiere al menos una hoja visible ──
         if hojas_e1 == 0:
             pd.DataFrame({
                 "estado":  ["Sin datos — todos los servicios externos fallaron"],
@@ -558,7 +617,6 @@ def guardar_excels(df_cruce, df_adjudicaciones, df_licitaciones, df_comprar, df_
                 df_alto_riesgo = df_alto_riesgo.sort_values("indice_riesgo_licit", ascending=False)
                 df_alto_riesgo.to_excel(writer, sheet_name="⚠️ Alertas Riesgo", index=False)
 
-        # ── Guardia Excel 2 ──
         hojas_e2 = sum([
             not df_adjudicaciones.empty and df_adjudicaciones["cuit_proveedor"].astype(bool).any(),
             not df_flujo.empty,
@@ -578,7 +636,6 @@ def guardar_excels(df_cruce, df_adjudicaciones, df_licitaciones, df_comprar, df_
 # EJECUCIÓN PRINCIPAL
 # ─────────────────────────────────────────
 if __name__ == "__main__":
-    # ── Guardia fin de semana y feriados argentinos ───────────────────────────
     hoy = datetime.now()
 
     try:
@@ -600,11 +657,10 @@ if __name__ == "__main__":
         print(f"⏭️  Hoy es feriado nacional: '{nombre_feriado}' ({hoy.strftime('%Y-%m-%d')}) — los organismos no publican.")
         print("   Script finalizado sin ejecutar scrapers.")
         exit(0)
-    # ──────────────────────────────────────────────────────────────────────────
+
     print("🚀 Ciclo Integrado: BORA + Comprar + TGN")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
 
-    # Instalar pdfminer si no está
     try:
         import pdfminer
     except ImportError:

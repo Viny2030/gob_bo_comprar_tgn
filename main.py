@@ -186,6 +186,50 @@ def guardar_excels_con_fecha(df_cruce, df_adj, df_licit, df_comprar, df_tgn, fec
 async def dashboard(request: Request):
     archivos = buscar_todos_los_xlsx(DATA_DIR)
     df = cargar_ultimo_reporte()
+
+    # ── Leer de PostgreSQL si está disponible ────────────────────────────────
+    if db_pool:
+        try:
+            from db_reportes import get_stats_globales, get_flujo_reciente, get_ultimo_reporte
+            stats   = await get_stats_globales(db_pool)
+            flujo   = await get_flujo_reciente(db_pool, limit=50)
+            rep_db  = await get_ultimo_reporte(db_pool)
+            if stats and stats.get("total_procesos"):
+                total       = int(stats.get("total_procesos") or 0)
+                alto_riesgo = int(stats.get("total_alto") or 0)
+                indice_prom = round(float(stats.get("indice_prom_global") or 0), 2)
+                ultimo_dia  = str(stats.get("ultimo_dia", ""))
+                tipo_counts   = {}
+                riesgo_counts = {}
+                tabla = []
+                if flujo:
+                    from collections import Counter
+                    tipo_counts   = dict(Counter(r["tipo_proceso_bora"] for r in flujo if r.get("tipo_proceso_bora")))
+                    riesgo_counts = dict(Counter(r["nivel_riesgo_licit"] for r in flujo if r.get("nivel_riesgo_licit")))
+                    for r in flujo[:50]:
+                        tabla.append({
+                            "nro_proceso":               r.get("id", ""),
+                            "detalle":                   r.get("organismo_contratante", "n/a"),
+                            "tipo_decision":             r.get("tipo_proceso_bora", "n/a"),
+                            "indice_fenomeno_corruptivo": r.get("indice_riesgo_licit", 0),
+                            "nivel_riesgo_teorico":      r.get("nivel_riesgo_licit", "Bajo"),
+                        })
+                ga_id = os.getenv("GA_MEASUREMENT_ID", "")
+                return templates.TemplateResponse(request, "dashboard.html", {
+                    "total":          total,
+                    "indice_prom":    indice_prom,
+                    "alto_riesgo":    alto_riesgo,
+                    "total_reportes": int(stats.get("dias_con_datos") or 0),
+                    "tipo_counts":    tipo_counts,
+                    "riesgo_counts":  riesgo_counts,
+                    "tabla":          tabla,
+                    "sin_datos":      total == 0,
+                    "ultimo_reporte": ultimo_dia or (etiqueta_archivo(archivos[0]) if archivos else "Sin datos"),
+                    "ga_id":          ga_id,
+                })
+        except Exception as e:
+            logger.warning(f"⚠️ Error leyendo DB para dashboard: {e}")
+    # ── Fallback: leer desde xlsx ────────────────────────────────────────────
     total = len(df) if not df.empty else 0
 
     # Detectar qué columnas tiene el DataFrame según la hoja leída

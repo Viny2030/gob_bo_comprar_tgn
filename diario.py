@@ -699,3 +699,35 @@ if __name__ == "__main__":
     print(f"   Flujo cruzado:      {len(df_cruce)}")
     print(f"   ⚠️  Riesgo Alto:    {alto_riesgo}")
     print(f"   🟡 Riesgo Medio:   {medio_riesgo}")
+
+    # ── Persistir en PostgreSQL ──────────────────────────────────────────────
+    try:
+        from db_reportes import guardar_en_db
+        indice_prom = 0.0
+        if not df_cruce.empty and "indice_riesgo_licit" in df_cruce.columns:
+            import pandas as _pd
+            indice_prom = round(float(_pd.to_numeric(
+                df_cruce["indice_riesgo_licit"], errors="coerce").mean() or 0), 2)
+        guardar_en_db(
+            fecha_str   = hoy.strftime("%Y-%m-%d"),
+            resumen     = {
+                "total_licit":     len(df_licitaciones),
+                "total_adj":       len(df_adjudicaciones),
+                "adj_con_cuit":    int(con_cuit),
+                "total_comprar":   len(df_comprar),
+                "total_tgn":       len(df_tgn),
+                "total_cruce":     len(df_cruce),
+                "flujo_completo":  int((df_cruce["alerta"] == "🚨 FLUJO COMPLETO: BORA→COMPRAR→TGN").sum())
+                                   if not df_cruce.empty and "alerta" in df_cruce.columns else 0,
+                "riesgo_alto":     int(alto_riesgo),
+                "riesgo_medio":    int(medio_riesgo),
+                "riesgo_bajo":     int((df_cruce["nivel_riesgo_licit"] == "Bajo").sum())
+                                   if not df_cruce.empty and "nivel_riesgo_licit" in df_cruce.columns else 0,
+                "indice_promedio": indice_prom,
+            },
+            df_cruce    = df_cruce    if not df_cruce.empty    else None,
+            df_bora     = df_bora_indice if not df_bora_indice.empty else None,
+            df_comprar  = df_comprar  if not df_comprar.empty  else None,
+        )
+    except Exception as _e:
+        print(f"⚠️  DB no disponible (xlsx guardados igualmente): {_e}")

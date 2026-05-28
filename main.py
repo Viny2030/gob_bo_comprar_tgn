@@ -85,6 +85,12 @@ async def init_db(pool: asyncpg.Pool):
             CREATE INDEX IF NOT EXISTS idx_donation_events_type
                 ON donation_events(event_type);
         """)
+    # Crear tablas de reportes diarios
+    try:
+        from db_reportes import _init_tables
+        await _init_tables(pool)
+    except Exception as e:
+        logger.warning(f"⚠️  No se pudieron crear tablas de reportes: {e}")
 
 # ── Schemas ──────────────────────────────────────────────────────────────────
 class DonationEvent(BaseModel):

@@ -62,6 +62,9 @@ templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 _df_cache = None
 
+# ── MEACI URL (Monitor Internacional) ───────────────────────────────────────
+MEACI_URL = "https://mapatransparencia-production.up.railway.app"
+
 # ── DB helpers ───────────────────────────────────────────────────────────────
 async def get_db() -> Optional[asyncpg.Pool]:
     return db_pool
@@ -378,7 +381,7 @@ def dias_disponibles():
             "total_dias": len(dias_todos), "con_datos": len(dias_con_datos)}
 
 @app.get("/api/licitaciones/datos")
-def datos_licitaciones(fecha: str = None):
+async def datos_licitaciones(fecha: str = None):
     if fecha:
         try:
             datetime.strptime(fecha, "%Y-%m-%d")
@@ -406,13 +409,31 @@ def datos_licitaciones(fecha: str = None):
         comprar_data = leer_hoja(flujo, ["⏳ Licitaciones Abiertas"])
     if not bora_adj and os.path.exists(flujo):
         bora_adj = leer_hoja(flujo, ["✅ Adjudicados con CUIT"])
+
+    # ── Cruce MEACI: consulta CUITs de adjudicaciones contra sanciones internacionales ──
+    meaci_alertas = {}
+    cuits_adj = list({r.get("cuit_proveedor", "") for r in bora_adj if r.get("cuit_proveedor", "")})
+    if cuits_adj:
+        try:
+            async with httpx.AsyncClient(timeout=6) as client:
+                r_meaci = await client.get(
+                    f"{MEACI_URL}/api/cruce-cuits-bulk",
+                    params={"cuits": ",".join(cuits_adj[:50])}
+                )
+                if r_meaci.status_code == 200:
+                    meaci_alertas = r_meaci.json().get("alertas", {})
+        except Exception:
+            pass  # MEACI no disponible — no bloquea el endpoint
+
     return {
         "fecha": fecha_str, "flujo": flujo_data, "bora_licitaciones": bora_licit,
         "bora_adjudicaciones": bora_adj, "comprar": comprar_data, "tgn": tgn_data,
         "sin_datos": False,
+        "meaci_alertas": meaci_alertas,
         "totales": {
             "flujo": len(flujo_data), "licit": len(bora_licit),
             "adj": len(bora_adj), "comprar": len(comprar_data), "tgn": len(tgn_data),
+            "meaci_alertas": len(meaci_alertas),
         },
     }
 
@@ -557,6 +578,37 @@ async def donation_stats(
         "by_currency": [dict(r) for r in by_currency],
         "daily_last_30": [{"day": str(r["day"]), "n": r["n"]} for r in daily],
     }
+
+# ── MEACI: Cruce Internacional de CUIT ───────────────────────────────────────
+
+@app.get("/api/cruce-cuit")
+async def cruce_cuit(cuit: str):
+    """Consulta si un CUIT está sancionado internacionalmente (vía MEACI)."""
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get(f"{MEACI_URL}/api/cruce-cuit", params={"cuit": cuit})
+            if r.status_code == 200:
+                return r.json()
+            return {"cuit": cuit, "sancionado": False, "fuente": "MEACI", "detalle": "sin datos"}
+    except Exception as e:
+        return {"cuit": cuit, "sancionado": False, "fuente": "MEACI", "error": str(e)}
+
+@app.get("/api/cruce-cuits-bulk")
+async def cruce_cuits_bulk(cuits: str):
+    """Consulta múltiples CUITs separados por coma. Retorna solo los sancionados."""
+    lista = [c.strip() for c in cuits.split(",") if c.strip()]
+    alertas = {}
+    async with httpx.AsyncClient(timeout=8) as client:
+        for cuit in lista[:50]:  # máximo 50 por llamada
+            try:
+                r = await client.get(f"{MEACI_URL}/api/cruce-cuit", params={"cuit": cuit})
+                if r.status_code == 200:
+                    data = r.json()
+                    if data.get("sancionado"):
+                        alertas[cuit] = data
+            except Exception:
+                pass
+    return {"alertas": alertas, "total_consultados": len(lista), "total_alertas": len(alertas)}
 
 # ── Healthcheck ──────────────────────────────────────────────────────────────
 @app.get("/health")

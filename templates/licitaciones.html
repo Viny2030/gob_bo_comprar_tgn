@@ -159,6 +159,8 @@
         .chip-flujo     { background:rgba(239,68,68,.15); color:#ff6b6b;             border:1px solid rgba(239,68,68,.3); }
         .chip-ok        { background:rgba(16,185,129,.1); color:var(--accent-green); }
         .chip-no        { background:rgba(100,116,139,.08);color:var(--text-muted); }
+        .chip-meaci     { background:rgba(239,68,68,.18); color:#ff4444; border:1px solid rgba(239,68,68,.4); font-weight:700; animation: pulse-meaci 2s ease-in-out infinite; }
+        @keyframes pulse-meaci { 0%,100%{opacity:1} 50%{opacity:.65} }
 
         .tabs { display:flex; gap:0; border-bottom:1px solid var(--border); padding:0 18px; }
         .tab-btn { background:none; border:none; padding:11px 16px; font-size:.78rem; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; transition:color .15s; font-family:inherit; }
@@ -354,7 +356,7 @@
 </main>
 
 <script>
-let DATA = { flujo: [], bora_licitaciones: [], bora_adjudicaciones: [], comprar: [] };
+let DATA = { flujo: [], bora_licitaciones: [], bora_adjudicaciones: [], comprar: [], meaci_alertas: {} };
 let grafico1 = null;
 let grafico2 = null;
 
@@ -525,7 +527,7 @@ function renderAdj() {
             <td class="td-name">${r.organismo_contratante || ''}</td>
             <td style="font-size:.75rem">${r.tipo_proceso || ''}</td>
             <td>${r.proveedor_adjudicado || '<span style="color:var(--text-muted)">—</span>'}</td>
-            <td>${r.cuit_proveedor && r.cuit_proveedor !== '' ? `<span class="chip chip-adjudicado">${r.cuit_proveedor}</span>` : '<span style="color:var(--accent-red);font-size:.72rem">Sin CUIT</span>'}</td>
+            <td>${r.cuit_proveedor && r.cuit_proveedor !== '' ? `<span class="chip chip-adjudicado">${r.cuit_proveedor}</span>${DATA.meaci_alertas[r.cuit_proveedor] ? ' <span class="chip chip-meaci" title="Sancionado internacionalmente — MEACI">🌍 ALERTA INTERNACIONAL</span>' : ''}` : '<span style="color:var(--accent-red);font-size:.72rem">Sin CUIT</span>'}</td>
             <td class="td-mono">${r.monto_adjudicado || '—'}</td>
             <td class="td-link">${lnk(r.link, '↗')}</td>
         </tr>`).join('');
@@ -613,6 +615,7 @@ async function cargarDatosIniciales(fecha = null) {
             DATA.bora_licitaciones   = data.bora_licitaciones   || [];
             DATA.bora_adjudicaciones = data.bora_adjudicaciones || [];
             DATA.comprar             = data.comprar             || [];
+            DATA.meaci_alertas       = data.meaci_alertas       || {};
 
             if (data.fecha) {
                 document.getElementById('fecha-reporte').textContent =

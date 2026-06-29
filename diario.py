@@ -46,10 +46,13 @@ def extraer_cuit(texto):
 def extraer_monto(texto):
     if not texto:
         return ""
+    # pdfminer puede insertar espacios dobles entre palabras (kerning del PDF);
+    # colapsamos antes de aplicar regex para que "IMPORTE  ADJUDICADO" matchee.
+    texto_norm = re.sub(r'  +', ' ', texto)
     m = re.search(
-        r'(?:MONTO TOTAL ADJUDICADO|TOTAL ADJUDICADO|IMPORTE ADJUDICADO|MONTO ADJUDICADO)'
+        r'(?:MONTO\s+TOTAL\s+ADJUDICADO|TOTAL\s+ADJUDICADO|IMPORTE\s+ADJUDICADO|MONTO\s+ADJUDICADO)'
         r'[^\$\d]*\$?\s*([\d\.,]+)',
-        texto, re.IGNORECASE
+        texto_norm, re.IGNORECASE
     )
     if m:
         return "$" + m.group(1).strip()
@@ -58,18 +61,21 @@ def extraer_monto(texto):
 def extraer_proveedor(texto):
     if not texto:
         return ""
+    # pdfminer puede insertar espacios dobles (kerning); colapsamos para que los
+    # patrones matcheen correctamente y el nombre devuelto no tenga dobles espacios.
+    texto_norm = re.sub(r'  +', ' ', texto)
     patrones = [
         r'PROVEEDOR ADJUDICADO[:\s]+([A-ZÁÉÍÓÚÑ][^\n\r]{3,80}?)(?:\s*[,\.]?\s*CUIT|\s*$)',
-        r'ADJUDICATARIO[:\s]+([A-ZÁÉÍÓÚÑ][^\n\r]{3,80}?)(?:\s*[,\.]?\s*CUIT|\s*$)',
+        r'ADJUDICATARIO[:\s]+([A-ZÁÉÍÓÚÑ][^\n\r]{3,80}?)(?:\s*[,\.]?\s*CUIT|\s*[,\.])',
         r'adjudicada?\s+(?:la\s+firma\s+|a\s+la\s+firma\s+|a\s+)([A-ZÁÉÍÓÚÑ][^\n\r]{3,80}?)(?:\s*[,\.]?\s*CUIT|\s*[,\.])',
         r'adjudicó[^\n\r]*?(?:la\s+firma|a)\s+([A-ZÁÉÍÓÚÑ][^\n\r]{3,80}?)(?:\s*[,\.]?\s*CUIT|\s*[,\.])',
         r'firma\s+([A-ZÁÉÍÓÚÑ][^\n\r]{3,80}?)\s*[,\.]?\s*(?:CUIT|C\.U\.I\.T)',
         r'([A-ZÁÉÍÓÚÑ][^\n\r]{3,60}?)\s+CUIT\s*[Nn][°º\.]\s*\d{2}-\d',
     ]
     for patron in patrones:
-        m = re.search(patron, texto, re.IGNORECASE)
+        m = re.search(patron, texto_norm, re.IGNORECASE)
         if m:
-            resultado = m.group(1).strip().rstrip(".,- ")
+            resultado = re.sub(r'\s+', ' ', m.group(1)).strip().rstrip(".,- ")
             if len(resultado) > 3:
                 return resultado
     return ""
@@ -302,11 +308,16 @@ def extraer_pagos_tgn():
     """
     Extrae pagos TGN usando la API v1 de Presupuesto Abierto.
     Cruce por organismo_norm ya que la API no expone CUIT beneficiario.
+    Requiere variable de entorno TGN_TOKEN (Bearer token de presupuestoabierto.gob.ar).
     """
     anio = datetime.now().year
     print("\n💰 Extrayendo Pagos TGN (Presupuesto Abierto API v1)...")
 
-    token = os.environ.get("TGN_TOKEN", "707cb8c8-83e6-4c4d-a202-3e49c14eda89")
+    token = os.environ.get("TGN_TOKEN", "")
+    if not token:
+        print("  ⚠️ TGN_TOKEN no configurado — omitiendo TGN del cruce")
+        print("     Para activar: configurar TGN_TOKEN en GitHub Secrets y Railway")
+        return pd.DataFrame()
 
     url = "https://www.presupuestoabierto.gob.ar/api/v1/credito"
     headers_api = {

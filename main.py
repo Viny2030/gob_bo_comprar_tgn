@@ -505,6 +505,35 @@ def ejecutar_licitaciones(fecha: str = None):
                           if not df_cruce.empty else 0)
         riesgo_alto  = int((df_cruce["nivel_riesgo_licit"] == "Alto").sum())  if "nivel_riesgo_licit" in df_cruce.columns else 0
         riesgo_medio = int((df_cruce["nivel_riesgo_licit"] == "Medio").sum()) if "nivel_riesgo_licit" in df_cruce.columns else 0
+        # ── Persistir en PostgreSQL ──────────────────────────────────────────
+        try:
+            from db_reportes import guardar_en_db
+            indice_prom = 0.0
+            if not df_cruce.empty and "indice_riesgo_licit" in df_cruce.columns:
+                indice_prom = round(float(pd.to_numeric(
+                    df_cruce["indice_riesgo_licit"], errors="coerce").mean() or 0), 2)
+            guardar_en_db(
+                fecha_str  = fecha_str,
+                resumen    = {
+                    "total_licit":    len(df_licit),
+                    "total_adj":      len(df_adj),
+                    "adj_con_cuit":   con_cuit,
+                    "total_comprar":  len(df_comprar),
+                    "total_tgn":      len(df_tgn),
+                    "total_cruce":    len(df_cruce),
+                    "flujo_completo": flujo_completo,
+                    "riesgo_alto":    riesgo_alto,
+                    "riesgo_medio":   riesgo_medio,
+                    "riesgo_bajo":    int((df_cruce["nivel_riesgo_licit"] == "Bajo").sum())
+                                      if not df_cruce.empty and "nivel_riesgo_licit" in df_cruce.columns else 0,
+                    "indice_promedio": indice_prom,
+                },
+                df_cruce   = df_cruce   if not df_cruce.empty   else None,
+                df_bora    = df_bora    if not df_bora.empty    else None,
+                df_comprar = df_comprar if not df_comprar.empty else None,
+            )
+        except Exception as _e:
+            logger.warning(f"⚠️  DB no disponible (xlsx guardados igualmente): {_e}")
         return {
             "status": "ok", "fecha": fecha_str,
             "licitaciones_bora": len(df_licit), "adjudicaciones": len(df_adj),

@@ -162,6 +162,22 @@
         .chip-meaci     { background:rgba(239,68,68,.18); color:#ff4444; border:1px solid rgba(239,68,68,.4); font-weight:700; animation: pulse-meaci 2s ease-in-out infinite; }
         @keyframes pulse-meaci { 0%,100%{opacity:1} 50%{opacity:.65} }
 
+        .btn-ia {
+            background: rgba(139,92,246,.12); border: 1px solid rgba(139,92,246,.35);
+            color: var(--accent-purple); padding: 3px 10px; border-radius: 20px;
+            font-size: .7rem; font-weight: 600; cursor: pointer; font-family: inherit;
+            display: inline-flex; align-items: center; gap: 4px; margin-top: 6px;
+        }
+        .btn-ia:hover:not(:disabled) { background: rgba(139,92,246,.22); }
+        .btn-ia:disabled { opacity: .5; cursor: not-allowed; }
+        .ia-box {
+            display: none; margin-top: 8px; padding: 10px 12px; border-radius: 8px;
+            background: rgba(139,92,246,.06); border: 1px solid rgba(139,92,246,.2);
+            font-size: .78rem; color: var(--text-secondary); line-height: 1.5;
+        }
+        .ia-box .ia-label { font-size: .65rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: .08em; color: var(--accent-purple); margin-bottom: 4px; display: block; }
+
         .tabs { display:flex; gap:0; border-bottom:1px solid var(--border); padding:0 18px; }
         .tab-btn { background:none; border:none; padding:11px 16px; font-size:.78rem; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; transition:color .15s; font-family:inherit; }
         .tab-btn:hover { color:var(--text-primary); }
@@ -460,13 +476,18 @@ function renderMetricas() {
 }
 
 /* ─── RENDER FLUJO ───────────────────────────────────────────── */
+let flujoActual = [];
+
 function renderFlujo(data) {
+    flujoActual = data;
     const el = document.getElementById('flujo-table');
     if (!data.length) {
         el.innerHTML = '<div class="empty">Sin registros para este filtro.</div>';
         return;
     }
-    el.innerHTML = data.map(r => `
+    el.innerHTML = data.map((r, idx) => {
+        const riesgoAlto = r.nivel_riesgo_licit === 'Alto' || r.nivel_riesgo_licit === 'Medio';
+        return `
         <div class="flujo-item">
             <div>
                 <div class="flujo-org">${r.organismo_contratante || '—'}</div>
@@ -476,14 +497,62 @@ function renderFlujo(data) {
                     ${checkChip(r.en_comprar, '🛒 Comprar')}
                     ${checkChip(r.cobro_en_tgn, '💵 TGN')}
                     ${r.cuit_proveedor && r.cuit_proveedor !== '' ? `<span class="chip chip-comprar">CUIT: ${r.cuit_proveedor}</span>` : ''}
+                    ${riesgoAlto ? `<span class="chip chip-sin-cuit">⚠️ Riesgo ${r.nivel_riesgo_licit}</span>` : ''}
                 </div>
+                ${riesgoAlto ? `
+                <button class="btn-ia" id="btn-ia-${idx}" onclick="explicarConIA(${idx})">🤖 Explicar con IA</button>
+                <div class="ia-box" id="ia-box-${idx}"></div>` : ''}
             </div>
             <div class="flujo-right">
                 ${r.monto_adjudicado_bora && r.monto_adjudicado_bora !== '' ? `<div class="flujo-monto">${r.monto_adjudicado_bora}</div>` : ''}
                 ${r.monto_cobrado_tgn && r.monto_cobrado_tgn !== '' ? `<div class="flujo-monto" style="color:var(--accent-green)">${r.monto_cobrado_tgn}</div>` : ''}
                 <div style="font-size:.7rem">${lnk(r.link_bora, '↗ BORA')}</div>
             </div>
-        </div>`).join('');
+        </div>`;
+    }).join('');
+}
+
+/* ─── AGENTIC AI: explicación de riesgo bajo demanda ─────────── */
+async function explicarConIA(idx) {
+    const r = flujoActual[idx];
+    const btn = document.getElementById(`btn-ia-${idx}`);
+    const box = document.getElementById(`ia-box-${idx}`);
+    if (!r || !btn || !box) return;
+
+    btn.disabled = true;
+    btn.textContent = '🤖 Pensando...';
+
+    try {
+        const resp = await fetch('/api/ia/explicar-riesgo', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                organismo_contratante: r.organismo_contratante || '',
+                tipo_proceso_bora:     r.tipo_proceso_bora || '',
+                monto_adjudicado_bora: r.monto_adjudicado_bora || '',
+                indicadores_riesgo:    r.indicadores_riesgo || '',
+                indice_riesgo_licit:   parseFloat(r.indice_riesgo_licit) || 0,
+                nivel_riesgo_licit:    r.nivel_riesgo_licit || '',
+                etapa:                 r.etapa || '',
+                alerta:                r.alerta || '',
+            }),
+        });
+        const data = await resp.json();
+        box.style.display = 'block';
+        if (data.disponible) {
+            box.innerHTML = `<span class="ia-label">🤖 Explicación (Claude)</span>${data.explicacion}`;
+            btn.style.display = 'none';
+        } else {
+            box.innerHTML = `<span class="ia-label">IA no disponible</span>${data.motivo || 'Configurá ANTHROPIC_API_KEY en Railway para habilitar esta función.'}`;
+            btn.disabled = false;
+            btn.textContent = '🤖 Explicar con IA';
+        }
+    } catch (e) {
+        box.style.display = 'block';
+        box.innerHTML = `<span class="ia-label">Error</span>No se pudo conectar con el servicio de IA.`;
+        btn.disabled = false;
+        btn.textContent = '🤖 Explicar con IA';
+    }
 }
 
 /* ─── TABLAS ─────────────────────────────────────────────────── */

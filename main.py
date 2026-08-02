@@ -1,5 +1,5 @@
-from fastapi import FastAPI, HTTPException, Request, Depends, Header
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, HTTPException, Request, Depends, Header, Form
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -53,7 +53,11 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
+CORS_ORIGINS = [o.strip() for o in os.getenv(
+    "CORS_ORIGINS",
+    "https://gobbocomprartgn-production.up.railway.app"
+).split(",") if o.strip()]
+app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
 
 DATA_DIR = "/app/data" if os.path.exists("/app") else "data"
@@ -651,15 +655,61 @@ async def cruce_cuits_bulk(cuits: str):
                 pass
     return {"alertas": alertas, "total_consultados": len(lista), "total_alertas": len(alertas)}
 
+# ── Agentic AI: segunda opinión de Claude sobre la matriz de reglas ─────────
+class TextoAviso(BaseModel):
+    texto: str
+    clasificacion_reglas: Optional[str] = ""
+
+class FilaRiesgo(BaseModel):
+    organismo_contratante: Optional[str] = ""
+    tipo_proceso_bora:     Optional[str] = ""
+    monto_adjudicado_bora: Optional[str] = ""
+    indicadores_riesgo:    Optional[str] = ""
+    indice_riesgo_licit:   Optional[float] = 0
+    nivel_riesgo_licit:    Optional[str] = ""
+    etapa:                 Optional[str] = ""
+    alerta:                Optional[str] = ""
+
+@app.get("/api/ia/status")
+def ia_status():
+    from agentic_ai import ia_disponible
+    return {"disponible": ia_disponible()}
+
+@app.post("/api/ia/clasificar")
+def ia_clasificar(payload: TextoAviso):
+    from agentic_ai import clasificar_aviso_ia
+    return clasificar_aviso_ia(payload.texto, payload.clasificacion_reglas or "")
+
+@app.post("/api/ia/explicar-riesgo")
+def ia_explicar_riesgo(fila: FilaRiesgo):
+    from agentic_ai import explicar_riesgo_licitacion
+    return explicar_riesgo_licitacion(fila.model_dump())
+
 # ── Healthcheck ──────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
     return {"status": "ok", "db": db_pool is not None, "ts": datetime.now(timezone.utc).isoformat()}
 
 # ── Admin Dashboard ──────────────────────────────────────────────────────────
+# Auth vía cookie httponly (no en query string, para no filtrar la clave en
+# logs de acceso / header Referer). El login es un POST que setea la cookie
+# y redirige a GET /admin sin parámetros en la URL.
+ADMIN_COOKIE = "admin_session"
+
+@app.post("/admin")
+async def admin_login(key: str = Form(...)):
+    resp = RedirectResponse(url="/admin", status_code=303)
+    if ADMIN_KEY and key == ADMIN_KEY:
+        resp.set_cookie(
+            ADMIN_COOKIE, key,
+            httponly=True, secure=True, samesite="strict", max_age=60 * 60 * 8,
+        )
+    return resp
+
 @app.get("/admin", response_class=HTMLResponse)
-async def admin_dashboard(request: Request, key: str = ""):
-    if not ADMIN_KEY or key != ADMIN_KEY:
+async def admin_dashboard(request: Request):
+    sesion = request.cookies.get(ADMIN_COOKIE, "")
+    if not ADMIN_KEY or sesion != ADMIN_KEY:
         return templates.TemplateResponse(request, "admin.html", {
             "autenticado": False,
             "stats": None,
@@ -684,5 +734,4 @@ async def admin_dashboard(request: Request, key: str = ""):
     return templates.TemplateResponse(request, "admin.html", {
         "autenticado": True,
         "stats": stats,
-        "admin_key": key,
     })

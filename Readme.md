@@ -191,6 +191,11 @@ GET  /api/reportes            → Lista de reportes disponibles
 GET  /api/licitaciones/datos  → Datos del último reporte
 POST /api/licitaciones/ejecutar → Ejecutar análisis manual
 GET  /docs                    → Swagger UI
+
+# Agentic AI (opcional, requiere ANTHROPIC_API_KEY)
+GET  /api/ia/status           → Indica si la IA está configurada
+POST /api/ia/clasificar       → Segunda opinión de Claude sobre un aviso BORA
+POST /api/ia/explicar-riesgo  → Explicación en lenguaje natural de un score de riesgo
 ```
 
 ---
@@ -233,9 +238,13 @@ Configurar en Railway → tu servicio → Variables:
 | Variable | Descripción |
 |---|---|
 | `DATABASE_URL` | URL de PostgreSQL (Railway lo inyecta automáticamente) |
-| `ADMIN_KEY` | Clave para acceder al panel `/admin` |
+| `ADMIN_KEY` | Clave para acceder al panel `/admin` (login por cookie, no va en la URL) |
 | `GA_MEASUREMENT_ID` | ID de Google Analytics 4 (ej: `G-XXXXXXXXXX`) |
 | `GA_API_SECRET` | Secret para GA4 Measurement Protocol (server-side) |
+| `TGN_TOKEN` | Bearer token de presupuestoabierto.gob.ar para el cruce de pagos TGN |
+| `CORS_ORIGINS` | Orígenes permitidos separados por coma (default: el dominio de Railway) |
+| `ANTHROPIC_API_KEY` | Habilita los endpoints `/api/ia/*` (agentic AI, opcional) |
+| `ANTHROPIC_MODEL` | Modelo a usar en `/api/ia/*` (default: `claude-sonnet-4-5`) |
 
 ---
 

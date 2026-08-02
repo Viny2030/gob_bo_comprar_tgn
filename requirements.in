@@ -1,18 +1,39 @@
-fastapi
-uvicorn[standard]
-gunicorn
-sqlalchemy
-alembic
-psycopg2-binary
-pandas
-httpx
-python-jose[cryptography]
-passlib[bcrypt]
-python-dotenv
-fastapi-mail
-redis
-celery
-slowapi
-pytest
-pytest-asyncio
-email-validator
+# requirements.in — dependencias reales del proyecto, alineadas con requirements.txt
+# y con lo que efectivamente importa el código (main.py, diario.py, analisis.py,
+# db_reportes.py). La versión anterior de este archivo traía sqlalchemy, alembic,
+# psycopg2-binary, python-jose, passlib, fastapi-mail, redis, celery, gunicorn —
+# ninguna de esas librerías se usa en el código (la app usa asyncpg directo, no
+# ORM, y no tiene colas de tareas ni auth con JWT). Se eliminaron para no
+# instalar peso muerto en la imagen de Docker.
+
+# ── Web framework ────────────────────────────────────────────────────────────
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+jinja2>=3.1.0
+python-multipart>=0.0.9
+
+# ── HTTP client (GA4 Measurement Protocol server-side, cruce MEACI) ──────────
+httpx>=0.27.0
+
+# ── PostgreSQL async ─────────────────────────────────────────────────────────
+asyncpg>=0.29.0
+
+# ── Data / analysis ──────────────────────────────────────────────────────────
+pandas>=2.0.0
+openpyxl>=3.1.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+pdfminer.six>=20221105
+
+# ── Pydantic ─────────────────────────────────────────────────────────────────
+pydantic>=2.0.0
+
+# ── Calendario y feriados ─────────────────────────────────────────────────────
+holidays>=0.46               # feriados nacionales Argentina (y otros países)
+
+# ── Agentic AI (clasificación/explicación asistida sobre avisos BORA) ────────
+anthropic>=0.40.0
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
+pytest>=8.0.0

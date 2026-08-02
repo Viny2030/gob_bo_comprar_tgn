@@ -17,8 +17,20 @@ requests>=2.31.0
 beautifulsoup4>=4.12.0
 lxml>=5.0.0
 
+# ── Extracción de texto de PDFs (avisos BORA que se publican como PDF) ───────
+# diario.py la importa para leer avisos y hace pip install en caliente si falta;
+# eso no corre en el deploy de Railway (solo instala requirements.txt), así que
+# sin esto la extracción de CUIT/monto/proveedor de avisos en PDF fallaba
+# silenciosamente en producción.
+pdfminer.six>=20221105
+
 # ── Pydantic ─────────────────────────────────────────────────────────────────
 pydantic>=2.0.0
 
 # ── Calendario y feriados ─────────────────────────────────────────────────────
 holidays>=0.46               # feriados nacionales Argentina (y otros países)
+
+# ── Agentic AI — clasificación/explicación asistida sobre avisos BORA ────────
+# Opcional: si no se configura ANTHROPIC_API_KEY, agentic_ai.py degrada
+# devolviendo un aviso claro en vez de romper el resto de la app.
+anthropic>=0.40.0

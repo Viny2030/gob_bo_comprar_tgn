@@ -9,7 +9,9 @@ from datetime import datetime
 # ===============================
 st.set_page_config(page_title="Monitor de Gran Corrupción", layout="wide")
 
-DATA_DIR = "/app/gob_docker/data" if os.path.exists("/app") else "gob_docker/data"
+# Misma convención de ruta que main.py — antes apuntaba a "gob_docker/data",
+# una carpeta que no existe en este repo (el dashboard nunca encontraba datos).
+DATA_DIR = "/app/data" if os.path.exists("/app") else "data"
 
 # ===============================
 # FUNCIONES DE GESTIÓN DE ARCHIVOS MENSUALES
@@ -28,7 +30,13 @@ def obtener_archivos_del_mes(mes):
     mes_dir = os.path.join(DATA_DIR, mes)
     if not os.path.exists(mes_dir):
         return []
-    archivos = [f for f in os.listdir(mes_dir) if f.endswith(".xlsx")]
+    # Solo "reporte_*.xlsx" (el workbook combinado que genera main.py/diario.py).
+    # "flujo_licitaciones_*.xlsx" es un subconjunto derivado del mismo día y
+    # tiene otras hojas — se omite acá para no duplicar/confundir la selección.
+    archivos = [
+        f for f in os.listdir(mes_dir)
+        if f.startswith("reporte_") and f.endswith(".xlsx")
+    ]
     return sorted(archivos, reverse=True)
 
 def formatear_nombre_mes(mes_codigo):
@@ -46,22 +54,40 @@ def formatear_nombre_mes(mes_codigo):
 # ===============================
 # TRATAMIENTO DE DATOS
 # ===============================
+# El workbook "reporte_YYYY-MM-DD.xlsx" que genera diario.py/main.py trae varias
+# hojas; la que tiene el score de riesgo aplicado es "⚠️ Riesgo Licitatorio"
+# (o, si esa no existe, "🚨 Flujo Completo" sin score todavía calculado).
+HOJAS_RIESGO = ["⚠️ Riesgo Licitatorio", "🚨 Flujo Completo", "🔗 Flujo Cruzado"]
+
+# Columnas esperadas del flujo BORA→Comprar→TGN con matriz de riesgo aplicada
+# (ver analizar_adjudicaciones en analisis.py). Antes este dashboard esperaba
+# el esquema viejo de analizar_boletin (tipo_decision/transferencia/
+# indice_fenomeno_corruptivo), que ya no se genera en el pipeline actual.
+COLUMNAS_DEFAULT = {
+    "organismo_contratante": "",
+    "tipo_proceso_bora":     "No identificado",
+    "cuit_proveedor":        "",
+    "monto_adjudicado_bora": "",
+    "indicadores_riesgo":    "✅ Sin alertas",
+    "score_riesgo_licit":    0.0,
+    "indice_riesgo_licit":   0.0,
+    "nivel_riesgo_licit":    "Bajo",
+    "etapa":                 "n/a",
+    "alerta":                "n/a",
+    "link_bora":             "",
+    "fecha":                 "",
+}
+
 @st.cache_data(ttl=3600, show_spinner="Cargando datos...")
 def cargar_y_limpiar(ruta):
-    df = pd.read_excel(ruta)
-    mapeo = {
-        "indice_total": "indice_fenomeno_corruptivo",
-        "nivel_riesgo": "nivel_riesgo_teorico",
-        "origen": "transferencia",
-    }
-    for viejo, nuevo in mapeo.items():
-        if viejo in df.columns and nuevo not in df.columns:
-            df = df.rename(columns={viejo: nuevo})
+    xl = pd.ExcelFile(ruta)
+    hoja = next((h for h in HOJAS_RIESGO if h in xl.sheet_names), xl.sheet_names[0])
+    df = xl.parse(hoja)
     df = df.loc[:, ~df.columns.duplicated()]
-    if "indice_fenomeno_corruptivo" not in df.columns:
-        df["indice_fenomeno_corruptivo"] = 0.0
-    if "tipo_decision" not in df.columns:
-        df["tipo_decision"] = "No identificado"
+    for col, default in COLUMNAS_DEFAULT.items():
+        if col not in df.columns:
+            df[col] = default
+    df["indice_riesgo_licit"] = pd.to_numeric(df["indice_riesgo_licit"], errors="coerce").fillna(0.0)
     return df
 
 # ===============================
@@ -134,7 +160,7 @@ if not archivos_del_mes:
 archivo_selec = st.sidebar.selectbox(
     "Reporte Diario",
     archivos_del_mes,
-    format_func=lambda x: x.replace("reporte_fenomenos_", "").replace(".xlsx", ""),
+    format_func=lambda x: x.replace("reporte_", "").replace(".xlsx", ""),
 )
 
 ruta_completa = os.path.join(DATA_DIR, mes_seleccionado, archivo_selec)
@@ -157,13 +183,13 @@ st.warning(
     "El objetivo es promover la transparencia y el debate informado sobre el gasto p\u00fablico."
 )
 
-df_detectados = df[df["tipo_decision"] != "No identificado"]
+df_detectados = df[df["nivel_riesgo_licit"] != "Bajo"]
 
 m1, m2, m3, m4 = st.columns(4)
-m1.metric("Normas Analizadas", len(df))
-m2.metric("Fenomenos Detectados", len(df_detectados))
-m3.metric("Riesgo Maximo", f"{df['indice_fenomeno_corruptivo'].max()}/10")
-fecha_label = archivo_selec.split("_")[-1].split(".")[0]
+m1.metric("Adjudicaciones Analizadas", len(df))
+m2.metric("Con Alertas (Medio/Alto)", len(df_detectados))
+m3.metric("Riesgo Maximo", f"{df['indice_riesgo_licit'].max():.1f}/10" if not df.empty else "0/10")
+fecha_label = archivo_selec.replace("reporte_", "").replace(".xlsx", "")
 m4.metric("Fecha del Reporte", fecha_label)
 st.divider()
 
@@ -173,45 +199,49 @@ st.divider()
 col_g1, col_g2 = st.columns(2)
 
 with col_g1:
-    st.write("### Intensidad por Escenario Teorico")
+    st.write("### Indice de Riesgo por Tipo de Proceso BORA")
     if not df_detectados.empty:
         fig_bar = px.bar(
             df_detectados,
-            x="indice_fenomeno_corruptivo",
-            y="tipo_decision",
-            color="nivel_riesgo_teorico",
+            x="indice_riesgo_licit",
+            y="tipo_proceso_bora",
+            color="nivel_riesgo_licit",
             orientation="h",
             color_discrete_map={"Alto": "#EF553B", "Medio": "#FECB52", "Bajo": "#636EFA"},
             labels={
-                "indice_fenomeno_corruptivo": "Indice de Intensidad (0-10)",
-                "tipo_decision": "Escenario de la Teoria",
+                "indice_riesgo_licit": "Indice de Riesgo Licitatorio (0-10)",
+                "tipo_proceso_bora": "Tipo de Proceso (BORA)",
             },
         )
         st.plotly_chart(fig_bar, use_container_width=True)
     else:
-        st.info("No hay fenomenos detectados en este reporte.")
+        st.info("No hay alertas de riesgo Medio/Alto en este reporte.")
 
 with col_g2:
-    st.write("### Sectores de Transferencia Regresiva")
+    st.write("### Etapa del Flujo BORA→Comprar→TGN")
     if not df_detectados.empty:
         fig_pie = px.pie(
-            df_detectados, names="transferencia", hole=0.4,
-            title="Distribucion de Impacto Economico",
+            df_detectados, names="etapa", hole=0.4,
+            title="Distribucion por Etapa del Proceso",
         )
         st.plotly_chart(fig_pie, use_container_width=True)
 
 # ===============================
 # TABLA DE AUDITORÍA
 # ===============================
-st.write("### Explorador de Decisiones Estatales")
-cols_visibles = ["fecha", "tipo_decision", "transferencia", "indice_fenomeno_corruptivo", "nivel_riesgo_teorico", "link"]
+st.write("### Explorador de Adjudicaciones")
+cols_visibles = [
+    "fecha", "organismo_contratante", "tipo_proceso_bora", "cuit_proveedor",
+    "monto_adjudicado_bora", "indicadores_riesgo", "indice_riesgo_licit",
+    "nivel_riesgo_licit", "etapa", "alerta", "link_bora",
+]
 df_display = df[[c for c in cols_visibles if c in df.columns]]
 st.dataframe(
     df_display,
     use_container_width=True,
     column_config={
-        "link": st.column_config.LinkColumn("Norma Original"),
-        "indice_fenomeno_corruptivo": st.column_config.ProgressColumn("Intensidad", min_value=0, max_value=10),
+        "link_bora": st.column_config.LinkColumn("Aviso BORA"),
+        "indice_riesgo_licit": st.column_config.ProgressColumn("Riesgo", min_value=0, max_value=10),
     },
 )
 
@@ -243,7 +273,7 @@ st.caption(f"Sistema validado - Ph.D. Vicente Humberto Monteverde | Ejecucion: {
 st.divider()
 col_art1, col_art2 = st.columns(2)
 with col_art1:
-    articulo_path = "articulo_monteverde_espanol.docx"
+    articulo_path = "articulo_monteverde_español.docx"
     if os.path.exists(articulo_path):
         with open(articulo_path, "rb") as file:
             st.download_button(

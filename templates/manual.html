@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual de Usuario / User Manual - Monitor XAI</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .lang-tabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:20px; }
+        .lang-tab-btn {
+            background:none; border:none; padding:12px 22px; font-size:.9rem; font-weight:600;
+            color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent;
+            transition:color .15s; font-family:var(--sans);
+        }
+        .lang-tab-btn:hover { color:var(--text-primary); }
+        .lang-tab-btn.active { color:var(--accent-cyan); border-bottom-color:var(--accent-cyan); }
+        .lang-content { display:none; }
+        .lang-content.active { display:block; }
+
+        .manual-toolbar {
+            display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;
+            margin-bottom:18px;
+        }
+        .manual-toc { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px; }
+        .manual-toc a {
+            font-size:.78rem; color:var(--text-secondary); text-decoration:none;
+            background:rgba(255,255,255,0.03); border:1px solid var(--border);
+            border-radius:999px; padding:6px 14px; transition:all .15s;
+        }
+        .manual-toc a:hover { color:var(--accent-cyan); border-color:var(--border-bright); }
+
+        .callout {
+            border-radius:10px; padding:16px 18px; margin:16px 0; font-size:.88rem; line-height:1.7;
+            border:1px solid var(--border);
+        }
+        .callout.info { background:rgba(6,182,212,0.06); border-left:3px solid var(--accent-cyan); color:var(--text-secondary); }
+        .callout.warn { background:rgba(245,158,11,0.07); border-left:3px solid var(--accent-amber); color:var(--text-secondary); }
+        .callout.legal { background:rgba(239,68,68,0.06); border-left:3px solid var(--accent-red); color:var(--text-secondary); }
+        .callout p { margin-bottom:8px; }
+        .callout p:last-child { margin-bottom:0; }
+        .callout strong { color:var(--text-primary); }
+
+        code.inline { font-family:var(--mono); background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px; font-size:.85em; color:var(--accent-cyan); }
+        pre.codeblock {
+            background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px;
+            padding:14px 16px; overflow-x:auto; font-family:var(--mono); font-size:.8rem;
+            color:var(--text-primary); margin:12px 0; line-height:1.6;
+        }
+        .manual-h2 { font-size:1.3rem; color:var(--text-primary); margin:8px 0 4px; scroll-margin-top:20px; }
+        .manual-sub { font-size:.85rem; color:var(--text-muted); margin-bottom:16px; }
+        .doc-section h3.sec-h3 { font-size:1rem; color:var(--text-primary); margin:18px 0 8px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="header-brand">
+                <h1>⚖️ Monitor XAI <span class="badge">v1.0</span></h1>
+                <p>Ph.D. Vicente Humberto Monteverde · Algoritmos contra la Corrupción</p>
+            </div>
+            <nav>
+                <a href="https://mapatransparencia-production.up.railway.app" target="_blank">🗺️ Mapa</a>
+                <a href="/">📊 Dashboard</a>
+                <a href="/licitaciones">🏛️ Licitaciones</a>
+                <a href="/analisis-vivo">🚀 Análisis en Vivo</a>
+                <a href="/documentacion">📖 Documentación</a>
+                <a href="/manual" class="active">📘 Manual</a>
+                <a href="/docs">🔧 API</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="doc-section" style="padding-bottom:0;">
+            <div class="manual-toolbar">
+                <h2 style="border:none; margin:0; padding:0;">📘 Manual de Usuario / User Manual</h2>
+                <div style="display:flex; gap:10px;">
+                    <a href="/api/descargar-manual-es" class="btn-descarga" style="padding:8px 16px; font-size:.78rem;">📥 .docx ES</a>
+                    <a href="/api/descargar-manual-en" class="btn-descarga" style="padding:8px 16px; font-size:.78rem;">📥 .docx EN</a>
+                </div>
+            </div>
+            <div class="lang-tabs">
+                <button class="lang-tab-btn active" onclick="switchLang(this,'es')">🇦🇷 Español</button>
+                <button class="lang-tab-btn" onclick="switchLang(this,'en')">🇺🇸 English</button>
+            </div>
+        </section>
+
+        <!-- ══════════════════════════ ESPAÑOL ══════════════════════════ -->
+        <div id="lang-es" class="lang-content active">
+
+        <div class="manual-toc">
+            <a href="#es-1">1. Qué es</a><a href="#es-2">2. Fundamento teórico</a><a href="#es-3">3. Navegación</a>
+            <a href="#es-4">4. Dashboard</a><a href="#es-5">5. Análisis en Vivo</a><a href="#es-6">6. Licitaciones</a>
+            <a href="#es-7">7. Validación de CUIT</a><a href="#es-8">8. Cruce MEACI</a><a href="#es-9">9. Documentación</a>
+            <a href="#es-10">10. API REST</a><a href="#es-11">11. Flujo recomendado</a><a href="#es-12">12. Aviso</a>
+        </div>
+
+        <section class="doc-section" id="es-1">
+            <h2 class="manual-h2">1. ¿Qué es el Monitor XAI?</h2>
+            <p style="color:var(--text-secondary); line-height:1.7; margin-bottom:14px;">
+                El Monitor XAI (eXplainable Artificial Intelligence) es una plataforma web de auditoría automatizada
+                del gasto público argentino. Cruza tres fuentes oficiales — el Boletín Oficial de la República
+                Argentina (BORA), el portal Comprar.gob.ar y la Tesorería General de la Nación (TGN) — y aplica una
+                matriz de 7 escenarios desarrollada por el Ph.D. Vicente Humberto Monteverde para detectar patrones
+                de transferencia regresiva de ingresos.
+            </p>
+            <div class="callout info">
+                <p><strong>Importante:</strong> el sistema NO detecta delitos penales, no es un canal de denuncia y no analiza la corrupción de personas individuales.</p>
+                <p><strong>Lo que SÍ hace:</strong> analiza decisiones discrecionales del Estado, detecta transferencias económicas regresivas y genera alertas tempranas basadas en evidencia, como herramienta de transparencia.</p>
+            </div>
+            <h3 class="sec-h3">1.1 Las tres fuentes de datos</h3>
+            <ul style="padding-left:20px; color:var(--text-secondary); line-height:1.8;">
+                <li><strong style="color:var(--text-primary)">Boletín Oficial (BORA)</strong> — Sección 3ª: avisos de licitaciones y adjudicaciones.</li>
+                <li><strong style="color:var(--text-primary)">Comprar.gob.ar</strong> — portal oficial de compras públicas, con el detalle de cada proceso.</li>
+                <li><strong style="color:var(--text-primary)">Tesorería General de la Nación (TGN)</strong> — confirma si el proveedor efectivamente cobró.</li>
+            </ul>
+            <p style="color:var(--text-secondary); line-height:1.7; margin-top:12px;">
+                Cuando un mismo contrato aparece en las tres fuentes, el sistema lo marca como <strong style="color:var(--text-primary)">"Flujo Completo"</strong>: trazabilidad total desde la decisión hasta el cobro.
+            </p>
+        </section>
+
+        <section class="doc-section" id="es-2">
+            <h2 class="manual-h2">2. Fundamento teórico — Los 7 escenarios de la Matriz XAI</h2>
+            <p style="color:var(--text-secondary); line-height:1.7; margin-bottom:14px;">
+                La Gran Corrupción no se limita a actos ilegales. Según la investigación del Dr. Monteverde
+                (Journal of Financial Crime, 2020), la corrupción moderna se diversificó en fenómenos legales
+                que producen las mismas consecuencias económicas.
+            </p>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead><tr><th style="text-align:left; padding:8px;">Escenario</th><th style="text-align:left; padding:8px;">Peso XAI</th><th style="text-align:left; padding:8px;">Dirección de la transferencia</th></tr></thead>
+                <tbody>
+                    <tr><td style="padding:8px;">Privatización / Concesión</td><td style="padding:8px;">9.0</td><td style="padding:8px;">Estado → Privados</td></tr>
+                    <tr><td style="padding:8px;">Obra Pública / Contratos</td><td style="padding:8px;">8.0</td><td style="padding:8px;">Estado → Empresas contratistas</td></tr>
+                    <tr><td style="padding:8px;">Tarifas de Servicios Públicos</td><td style="padding:8px;">7.0</td><td style="padding:8px;">Usuarios → Concesionarias</td></tr>
+                    <tr><td style="padding:8px;">Precios Regulados</td><td style="padding:8px;">6.0</td><td style="padding:8px;">Consumidores → Productores</td></tr>
+                    <tr><td style="padding:8px;">Salarios y Paritarias</td><td style="padding:8px;">5.0</td><td style="padding:8px;">Asalariados → Empleadores</td></tr>
+                    <tr><td style="padding:8px;">Jubilaciones / Pensiones</td><td style="padding:8px;">10.0</td><td style="padding:8px;">Jubilados → Estado</td></tr>
+                    <tr><td style="padding:8px;">Traslado de Impuestos</td><td style="padding:8px;">9.0</td><td style="padding:8px;">Contribuyentes → Estado</td></tr>
+                </tbody>
+            </table>
+            <p style="color:var(--text-secondary); line-height:1.7; margin-top:14px;">
+                Cada proceso recibe un <strong style="color:var(--text-primary)">Índice XAI de 0 a 10</strong> según el escenario y el contexto del contrato. A mayor índice, mayor nivel de discrecionalidad detectado.
+            </p>
+            <p class="manual-sub" style="margin-top:14px;">
+                Monteverde, V. H. (2020). <em>Great corruption – theory of corrupt phenomena</em>. Journal of Financial Crime, Vol. 28 No. 2, pp. 580-595.
+                <a href="https://doi.org/10.1108/JFC-04-2020-0062" target="_blank" style="color:var(--accent-cyan)">doi.org/10.1108/JFC-04-2020-0062</a>
+            </p>
+        </section>
+
+        <section class="doc-section" id="es-3">
+            <h2 class="manual-h2">3. Estructura de navegación</h2>
+            <div class="doc-grid">
+                <div class="doc-card"><h3>📊 Dashboard</h3><p style="color:var(--text-secondary); font-size:.88rem;">Resumen ejecutivo con métricas y gráficos del último análisis.</p></div>
+                <div class="doc-card"><h3>🚀 Análisis en Vivo</h3><p style="color:var(--text-secondary); font-size:.88rem;">Pantalla operativa para ejecutar el scraping y el análisis del día.</p></div>
+                <div class="doc-card"><h3>🏛️ Licitaciones</h3><p style="color:var(--text-secondary); font-size:.88rem;">Flujo cruzado BORA → Comprar.gob.ar → TGN, con trazabilidad completa.</p></div>
+                <div class="doc-card"><h3>📖 Documentación</h3><p style="color:var(--text-secondary); font-size:.88rem;">Marco teórico, guía de uso y referencia de la API.</p></div>
+            </div>
+        </section>
+
+        <section class="doc-section" id="es-4">
+            <h2 class="manual-h2">4. Dashboard</h2>
+            <p style="color:var(--text-secondary); line-height:1.7;">Pantalla principal con el resumen ejecutivo del último análisis ejecutado.</p>
+            <h3 class="sec-h3">4.1 Métricas principales</h3>
+            <p style="color:var(--text-secondary); line-height:1.7;">Cuatro tarjetas superiores: total de procesos analizados, alertas de alto riesgo, escenario más frecuente e índice XAI promedio.</p>
+            <h3 class="sec-h3">4.2 Gráficos</h3>
+            <ul style="padding-left:20px; color:var(--text-secondary); line-height:1.8;">
+                <li><strong style="color:var(--text-primary)">Distribución por Tipo de Fenómeno</strong> — frecuencia de cada uno de los 7 escenarios.</li>
+                <li><strong style="color:var(--text-primary)">Nivel de Riesgo</strong> — distribución proporcional por categoría de riesgo.</li>
+                <li><strong style="color:var(--text-primary)">Detalle del Análisis Algorítmico</strong> — tabla expandible con índice XAI, escenario, organismo, proveedor y monto.</li>
+            </ul>
+        </section>
+
+        <section class="doc-section" id="es-5">
+            <h2 class="manual-h2">5. Análisis en Vivo</h2>
+            <p style="color:var(--text-secondary); line-height:1.7;">Sección operativa: ejecuta el scraper y aplica la Matriz XAI sobre los datos del día seleccionado.</p>
+            <h3 class="sec-h3">5.2 Ciclo de Análisis Completo</h3>
+            <ol style="padding-left:20px; color:var(--text-secondary); line-height:1.9;">
+                <li>Conexión con Comprar.gob.ar</li>
+                <li>Extracción de datos del día</li>
+                <li>Cruce con BORA</li>
+                <li>Consulta TGN (confirmación de cobro)</li>
+                <li>Aplicación de la Matriz XAI</li>
+                <li>Generación del reporte Excel</li>
+                <li>Redireccionamiento a Dashboard y Licitaciones</li>
+            </ol>
+        </section>
+
+        <section class="doc-section" id="es-6">
+            <h2 class="manual-h2">6. Licitaciones — Flujo Cruzado BORA → Comprar → TGN</h2>
+            <p style="color:var(--text-secondary); line-height:1.7;">La pantalla más informativa para el seguimiento diario: combina las tres fuentes en una vista unificada.</p>
+            <h3 class="sec-h3">6.2 Métricas del flujo</h3>
+            <ul style="padding-left:20px; color:var(--text-secondary); line-height:1.8;">
+                <li><strong style="color:var(--text-primary)">Total Publicaciones BORA</strong> — todos los avisos de la Sección 3ra del día.</li>
+                <li><strong style="color:var(--text-primary)">Con CUIT Extraído</strong> — publicaciones con CUIT identificado.</li>
+                <li><strong style="color:var(--text-primary)">Sin CUIT (pendientes)</strong> — requieren revisión manual.</li>
+                <li><strong style="color:var(--text-primary)">Flujo Completo BORA→TGN</strong> — trazabilidad total: BORA + Comprar.gob.ar + cobro confirmado en TGN.</li>
+            </ul>
+            <h3 class="sec-h3">6.3 Tabla de adjudicaciones</h3>
+            <p style="color:var(--text-secondary); line-height:1.7;">Junto al CUIT de cada proveedor aparecen dos señales adicionales (ver Secciones 7 y 8):</p>
+            <ul style="padding-left:20px; color:var(--text-secondary); line-height:1.8;">
+                <li>✓ / ⚠️ — validación de formato del CUIT (dígito verificador AFIP).</li>
+                <li>🌍 ALERTA INTERNACIONAL — CUIT en la base de sanciones internacionales (MEACI).</li>
+            </ul>
+        </section>
+
+        <section class="doc-section" id="es-7">
+            <h2 class="manual-h2">7. Validación de formato de CUIT</h2>
+            <p style="color:var(--text-secondary); line-height:1.7;">
+                Cada CUIT de proveedor se extrae automáticamente del texto de un aviso del Boletín Oficial (a veces un PDF escaneado), así que la extracción puede fallar. El sistema valida cada CUIT con el algoritmo real de dígito verificador módulo 11 de AFIP.
+            </p>
+            <div class="callout warn">
+                <p>✓ <strong>SÍ confirma</strong> que el número tiene 11 dígitos y que el dígito verificador es matemáticamente correcto — es decir, que el CUIT está bien formado.</p>
+                <p>⚠️ <strong>NO consulta</strong> ningún padrón oficial: no confirma inscripción real en AFIP, ni devuelve razón social o estado. Eso requeriría el webservice oficial de AFIP (padrón A13) con certificado digital, no integrado aún.</p>
+            </div>
+            <h3 class="sec-h3">Acceso programático (API)</h3>
+            <pre class="codeblock">GET /api/cuit/validar?cuit=30-12345678-1
+GET /api/cuit/validar-lote?cuits=30-12345678-1,20-12345678-6   (máx. 200)</pre>
+        </section>
+
+        <section class="doc-section" id="es-8">
+            <h2 class="manual-h2">8. Cruce internacional de sanciones (MEACI)</h2>
+            <p style="color:var(--text-secondary); line-height:1.7;">
+                Servicio independiente que cruza el CUIT del proveedor adjudicado contra bases de sanciones internacionales. Si hay coincidencia, la fila muestra 🌍 ALERTA INTERNACIONAL.
+            </p>
+            <pre class="codeblock">GET /api/cruce-cuit?cuit=30-12345678-1
+GET /api/cruce-cuits-bulk?cuits=cuit1,cuit2,cuit3   (máx. 50)</pre>
+        </section>
+
+        <section class="doc-section" id="es-9">
+            <h2 class="manual-h2">9. Documentación e interpretación de resultados</h2>
+            <h3 class="sec-h3">9.1 Guía rápida</h3>
+            <ol style="padding-left:20px; color:var(--text-secondary); line-height:1.9;">
+                <li>Ir a Análisis en Vivo y pulsar 🚀 para ejecutar el scraping del día.</li>
+                <li>En Dashboard, revisar métricas y gráficos.</li>
+                <li>Ordenar por Índice XAI para priorizar los casos más críticos.</li>
+            </ol>
+            <h3 class="sec-h3">9.2 Interpretación del índice</h3>
+            <p style="color:var(--text-secondary); line-height:1.7;">El Índice XAI (0-10) mide el nivel de discrecionalidad detectado. Cuanto más alto, mayor la probabilidad de un fenómeno de transferencia regresiva (Sección 2).</p>
+        </section>
+
+        <section class="doc-section" id="es-10">
+            <h2 class="manual-h2">10. API REST</h2>
+            <p style="color:var(--text-secondary); line-height:1.7; margin-bottom:12px;">API construida con FastAPI. Documentación interactiva (Swagger UI) en <code class="inline">/docs</code>.</p>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead><tr><th style="text-align:left; padding:8px;">Endpoint</th><th style="text-align:left; padding:8px;">Descripción</th></tr></thead>
+                <tbody>
+                    <tr><td style="padding:8px;"><code class="inline">GET /api/status</code></td><td style="padding:8px;">Estado general del sistema</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">GET /api/licitaciones/datos</code></td><td style="padding:8px;">Datos del último reporte</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">POST /api/licitaciones/ejecutar</code></td><td style="padding:8px;">Ejecuta el ciclo de análisis</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">GET /api/marco-teorico</code></td><td style="padding:8px;">Detalle de la Matriz XAI</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">GET /api/cuit/validar</code></td><td style="padding:8px;">Valida el formato de un CUIT</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">GET /api/cruce-cuit</code></td><td style="padding:8px;">Consulta sanciones internacionales (MEACI)</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">GET /api/ia/status</code></td><td style="padding:8px;">Indica si la IA está configurada</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">GET /health</code></td><td style="padding:8px;">Healthcheck del servicio</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="doc-section" id="es-11">
+            <h2 class="manual-h2">11. Flujo de trabajo recomendado</h2>
+            <ol style="padding-left:20px; color:var(--text-secondary); line-height:1.9;">
+                <li>Todas las mañanas: ejecutar el ciclo del día en Análisis en Vivo.</li>
+                <li>Revisar el Dashboard por nuevas alertas de alto riesgo.</li>
+                <li>En Licitaciones, filtrar por "Sin CUIT" para revisión manual.</li>
+                <li>Verificar los íconos ✓/⚠️ antes de dar por buena una adjudicación.</li>
+                <li>Prestar atención a cualquier fila 🌍 ALERTA INTERNACIONAL.</li>
+                <li>Ordenar por Índice XAI para priorizar los casos más críticos.</li>
+            </ol>
+        </section>
+
+        <section class="doc-section referencia" id="es-12">
+            <h2 class="manual-h2">12. Aviso</h2>
+            <div class="callout legal">
+                <p>Esta herramienta es de carácter experimental y académico. Los datos provienen de fuentes públicas oficiales del Estado argentino. Los resultados son indicadores algorítmicos de riesgo — no implican juicio de valor, acusación ni determinación de responsabilidad sobre ninguna empresa, organismo o persona.</p>
+            </div>
+            <p class="manual-sub" style="margin-top:12px;">Contacto: vhmonte@retina.ar / viny01958@gmail.com · Licencia MIT</p>
+        </section>
+
+        </div>
+
+        <!-- ══════════════════════════ ENGLISH ══════════════════════════ -->
+        <div id="lang-en" class="lang-content">
+
+        <div class="manual-toc">
+            <a href="#en-1">1. What is it</a><a href="#en-2">2. Foundation</a><a href="#en-3">3. Navigation</a>
+            <a href="#en-4">4. Dashboard</a><a href="#en-5">5. Live Analysis</a><a href="#en-6">6. Tenders</a>
+            <a href="#en-7">7. CUIT validation</a><a href="#en-8">8. MEACI</a><a href="#en-9">9. Documentation</a>
+            <a href="#en-10">10. REST API</a><a href="#en-11">11. Workflow</a><a href="#en-12">12. Disclaimer</a>
+        </div>
+
+        <section class="doc-section" id="en-1">
+            <h2 class="manual-h2">1. What is Monitor XAI?</h2>
+            <p style="color:var(--text-secondary); line-height:1.7; margin-bottom:14px;">
+                Monitor XAI (eXplainable Artificial Intelligence) is a web platform for automated auditing of
+                Argentine public spending. It cross-references three official sources — the Official Gazette
+                (BORA), the Comprar.gob.ar procurement portal, and the National Treasury (TGN) — and applies a
+                7-scenario matrix developed by Ph.D. Vicente Humberto Monteverde to detect regressive income
+                transfer patterns.
+            </p>
+            <div class="callout info">
+                <p><strong>Important:</strong> this system does NOT detect criminal offenses, is not a whistleblowing channel, and does not analyze individual people's corruption.</p>
+                <p><strong>What it DOES do:</strong> it analyzes discretionary state decisions, detects regressive economic transfers, and generates evidence-based early warnings.</p>
+            </div>
+            <h3 class="sec-h3">1.1 The three data sources</h3>
+            <ul style="padding-left:20px; color:var(--text-secondary); line-height:1.8;">
+                <li><strong style="color:var(--text-primary)">Official Gazette (BORA)</strong> — Section 3: tender and award notices.</li>
+                <li><strong style="color:var(--text-primary)">Comprar.gob.ar</strong> — the official public procurement portal.</li>
+                <li><strong style="color:var(--text-primary)">National Treasury (TGN)</strong> — confirms whether the vendor was actually paid.</li>
+            </ul>
+            <p style="color:var(--text-secondary); line-height:1.7; margin-top:12px;">
+                When the same contract appears in all three sources, the system flags it as <strong style="color:var(--text-primary)">"Complete Flow"</strong>: fully traceable from decision to payment.
+            </p>
+        </section>
+
+        <section class="doc-section" id="en-2">
+            <h2 class="manual-h2">2. Theoretical foundation — The 7 scenarios of the XAI Matrix</h2>
+            <p style="color:var(--text-secondary); line-height:1.7; margin-bottom:14px;">
+                Grand corruption is not limited to illegal acts. Per Dr. Monteverde's research (Journal of Financial
+                Crime, 2020), modern corruption diversified into legal phenomena producing the same economic consequences.
+            </p>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead><tr><th style="text-align:left; padding:8px;">Scenario</th><th style="text-align:left; padding:8px;">XAI Weight</th><th style="text-align:left; padding:8px;">Direction of the transfer</th></tr></thead>
+                <tbody>
+                    <tr><td style="padding:8px;">Privatization / Concession</td><td style="padding:8px;">9.0</td><td style="padding:8px;">State → Private sector</td></tr>
+                    <tr><td style="padding:8px;">Public Works / Contracts</td><td style="padding:8px;">8.0</td><td style="padding:8px;">State → Contracting firms</td></tr>
+                    <tr><td style="padding:8px;">Public Utility Tariffs</td><td style="padding:8px;">7.0</td><td style="padding:8px;">Users → Utility companies</td></tr>
+                    <tr><td style="padding:8px;">Regulated Prices</td><td style="padding:8px;">6.0</td><td style="padding:8px;">Consumers → Producers</td></tr>
+                    <tr><td style="padding:8px;">Wages and Collective Bargaining</td><td style="padding:8px;">5.0</td><td style="padding:8px;">Employees → Employers</td></tr>
+                    <tr><td style="padding:8px;">Pensions</td><td style="padding:8px;">10.0</td><td style="padding:8px;">Retirees → State</td></tr>
+                    <tr><td style="padding:8px;">Tax Shifting</td><td style="padding:8px;">9.0</td><td style="padding:8px;">Taxpayers → State</td></tr>
+                </tbody>
+            </table>
+            <p style="color:var(--text-secondary); line-height:1.7; margin-top:14px;">
+                Each process receives an <strong style="color:var(--text-primary)">XAI Index from 0 to 10</strong> based on the detected scenario and contract context. The higher the index, the greater the discretion detected.
+            </p>
+            <p class="manual-sub" style="margin-top:14px;">
+                Monteverde, V. H. (2020). <em>Great corruption – theory of corrupt phenomena</em>. Journal of Financial Crime, Vol. 28 No. 2, pp. 580-595.
+                <a href="https://doi.org/10.1108/JFC-04-2020-0062" target="_blank" style="color:var(--accent-cyan)">doi.org/10.1108/JFC-04-2020-0062</a>
+            </p>
+        </section>
+
+        <section class="doc-section" id="en-3">
+            <h2 class="manual-h2">3. Navigation structure</h2>
+            <div class="doc-grid">
+                <div class="doc-card"><h3>📊 Dashboard</h3><p style="color:var(--text-secondary); font-size:.88rem;">Executive summary with metrics and charts from the latest analysis.</p></div>
+                <div class="doc-card"><h3>🚀 Live Analysis</h3><p style="color:var(--text-secondary); font-size:.88rem;">Operational screen to run the day's scraping and analysis.</p></div>
+                <div class="doc-card"><h3>🏛️ Tenders</h3><p style="color:var(--text-secondary); font-size:.88rem;">Cross-referenced BORA → Comprar.gob.ar → TGN flow.</p></div>
+                <div class="doc-card"><h3>📖 Documentation</h3><p style="color:var(--text-secondary); font-size:.88rem;">Theoretical framework, usage guide and API reference.</p></div>
+            </div>
+        </section>
+
+        <section class="doc-section" id="en-4">
+            <h2 class="manual-h2">4. Dashboard</h2>
+            <p style="color:var(--text-secondary); line-height:1.7;">The system's main screen, showing an executive summary of the latest analysis run.</p>
+            <h3 class="sec-h3">4.1 Key metrics</h3>
+            <p style="color:var(--text-secondary); line-height:1.7;">Four top cards: total processes analyzed, high-risk alerts, most frequent scenario, and average XAI index.</p>
+            <h3 class="sec-h3">4.2 Charts</h3>
+            <ul style="padding-left:20px; color:var(--text-secondary); line-height:1.8;">
+                <li><strong style="color:var(--text-primary)">Distribution by Phenomenon Type</strong> — frequency of each of the 7 scenarios.</li>
+                <li><strong style="color:var(--text-primary)">Risk Level</strong> — proportional distribution by risk category.</li>
+                <li><strong style="color:var(--text-primary)">Algorithmic Analysis Detail</strong> — expandable table with index, scenario, agency, vendor and amount.</li>
+            </ul>
+        </section>
+
+        <section class="doc-section" id="en-5">
+            <h2 class="manual-h2">5. Live Analysis</h2>
+            <p style="color:var(--text-secondary); line-height:1.7;">The operational section: runs the scraper and applies the XAI Matrix to the selected day's data.</p>
+            <h3 class="sec-h3">5.2 Full Analysis Cycle</h3>
+            <ol style="padding-left:20px; color:var(--text-secondary); line-height:1.9;">
+                <li>Connect to Comprar.gob.ar</li>
+                <li>Extract the day's data</li>
+                <li>Cross-reference with BORA</li>
+                <li>Query the TGN (payment confirmation)</li>
+                <li>Apply the XAI Matrix</li>
+                <li>Generate the Excel report</li>
+                <li>Redirect to Dashboard and Tenders</li>
+            </ol>
+        </section>
+
+        <section class="doc-section" id="en-6">
+            <h2 class="manual-h2">6. Tenders — BORA → Comprar → TGN Cross-Referenced Flow</h2>
+            <p style="color:var(--text-secondary); line-height:1.7;">The most informative screen for daily monitoring, combining all three sources into one unified view.</p>
+            <h3 class="sec-h3">6.2 Flow metrics</h3>
+            <ul style="padding-left:20px; color:var(--text-secondary); line-height:1.8;">
+                <li><strong style="color:var(--text-primary)">Total BORA Publications</strong> — every notice from the day's Section 3.</li>
+                <li><strong style="color:var(--text-primary)">With CUIT Extracted</strong> — publications with an identified CUIT.</li>
+                <li><strong style="color:var(--text-primary)">Without CUIT (pending)</strong> — require manual review.</li>
+                <li><strong style="color:var(--text-primary)">Complete BORA→TGN Flow</strong> — fully traceable: BORA + Comprar.gob.ar + confirmed TGN payment.</li>
+            </ul>
+            <h3 class="sec-h3">6.3 Awards table</h3>
+            <p style="color:var(--text-secondary); line-height:1.7;">Next to each vendor's CUIT, two additional signals appear (see Sections 7 and 8):</p>
+            <ul style="padding-left:20px; color:var(--text-secondary); line-height:1.8;">
+                <li>✓ / ⚠️ — CUIT format validation (AFIP check digit).</li>
+                <li>🌍 INTERNATIONAL ALERT — CUIT found in the international sanctions database (MEACI).</li>
+            </ul>
+        </section>
+
+        <section class="doc-section" id="en-7">
+            <h2 class="manual-h2">7. CUIT format validation</h2>
+            <p style="color:var(--text-secondary); line-height:1.7;">
+                Every vendor CUIT is automatically extracted from an Official Gazette notice (sometimes a scanned PDF), so extraction can fail. The system validates every CUIT with AFIP's real modulus-11 check-digit algorithm.
+            </p>
+            <div class="callout warn">
+                <p>✓ It <strong>DOES confirm</strong> the number has 11 digits and a mathematically correct check digit — i.e., the CUIT is well-formed.</p>
+                <p>⚠️ It does <strong>NOT query</strong> any official registry: it does not confirm real AFIP registration, nor return the legal name or status. That would require AFIP's official webservice (Padrón A13) via digital certificate, not yet integrated.</p>
+            </div>
+            <h3 class="sec-h3">Programmatic access (API)</h3>
+            <pre class="codeblock">GET /api/cuit/validar?cuit=30-12345678-1
+GET /api/cuit/validar-lote?cuits=30-12345678-1,20-12345678-6   (max. 200)</pre>
+        </section>
+
+        <section class="doc-section" id="en-8">
+            <h2 class="manual-h2">8. International sanctions cross-reference (MEACI)</h2>
+            <p style="color:var(--text-secondary); line-height:1.7;">
+                An independent service that cross-references the awarded vendor's CUIT against international sanctions databases. On a match, the row shows 🌍 INTERNATIONAL ALERT.
+            </p>
+            <pre class="codeblock">GET /api/cruce-cuit?cuit=30-12345678-1
+GET /api/cruce-cuits-bulk?cuits=cuit1,cuit2,cuit3   (max. 50)</pre>
+        </section>
+
+        <section class="doc-section" id="en-9">
+            <h2 class="manual-h2">9. Documentation and how to interpret results</h2>
+            <h3 class="sec-h3">9.1 Quick start</h3>
+            <ol style="padding-left:20px; color:var(--text-secondary); line-height:1.9;">
+                <li>Go to Live Analysis and click 🚀 to run the day's scraping.</li>
+                <li>On the Dashboard, review metrics and charts.</li>
+                <li>Sort by XAI Index to prioritize the most critical cases.</li>
+            </ol>
+            <h3 class="sec-h3">9.2 Interpreting the index</h3>
+            <p style="color:var(--text-secondary); line-height:1.7;">The XAI Index (0-10) measures the level of discretion detected. The higher it is, the more likely it corresponds to a regressive-transfer scenario (Section 2).</p>
+        </section>
+
+        <section class="doc-section" id="en-10">
+            <h2 class="manual-h2">10. REST API</h2>
+            <p style="color:var(--text-secondary); line-height:1.7; margin-bottom:12px;">A REST API built with FastAPI. Interactive documentation (Swagger UI) at <code class="inline">/docs</code>.</p>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead><tr><th style="text-align:left; padding:8px;">Endpoint</th><th style="text-align:left; padding:8px;">Description</th></tr></thead>
+                <tbody>
+                    <tr><td style="padding:8px;"><code class="inline">GET /api/status</code></td><td style="padding:8px;">Overall system status</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">GET /api/licitaciones/datos</code></td><td style="padding:8px;">Data from the latest report</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">POST /api/licitaciones/ejecutar</code></td><td style="padding:8px;">Runs the analysis cycle</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">GET /api/marco-teorico</code></td><td style="padding:8px;">Detail of the XAI Matrix</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">GET /api/cuit/validar</code></td><td style="padding:8px;">Validates a CUIT's format</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">GET /api/cruce-cuit</code></td><td style="padding:8px;">Checks international sanctions (MEACI)</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">GET /api/ia/status</code></td><td style="padding:8px;">Indicates whether the AI is configured</td></tr>
+                    <tr><td style="padding:8px;"><code class="inline">GET /health</code></td><td style="padding:8px;">Service health check</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section class="doc-section" id="en-11">
+            <h2 class="manual-h2">11. Recommended workflow</h2>
+            <ol style="padding-left:20px; color:var(--text-secondary); line-height:1.9;">
+                <li>Every morning: run the day's cycle in Live Analysis.</li>
+                <li>Check the Dashboard for new high-risk alerts.</li>
+                <li>In Tenders, filter by "No CUIT" for manual review.</li>
+                <li>Check the ✓/⚠️ icons before treating an award as reliable.</li>
+                <li>Pay attention to any row marked 🌍 INTERNATIONAL ALERT.</li>
+                <li>Sort by XAI Index to prioritize the most critical cases.</li>
+            </ol>
+        </section>
+
+        <section class="doc-section referencia" id="en-12">
+            <h2 class="manual-h2">12. Disclaimer</h2>
+            <div class="callout legal">
+                <p>This tool is experimental and academic in nature. Data comes from official public sources of the Argentine State. Results are algorithmic risk indicators — they do not imply a value judgment, accusation, or determination of liability against any company, agency or person.</p>
+            </div>
+            <p class="manual-sub" style="margin-top:12px;">Contact: vhmonte@retina.ar / viny01958@gmail.com · MIT License</p>
+        </section>
+
+        </div>
+    </main>
+
+    <script>
+        function switchLang(btn, lang) {
+            document.querySelectorAll('.lang-tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.lang-content').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('lang-' + lang).classList.add('active');
+            document.documentElement.lang = lang;
+            history.replaceState(null, '', '#' + lang);
+        }
+        // Si la URL trae #en, abrir directamente en inglés
+        if (location.hash === '#en') {
+            const enBtn = document.querySelectorAll('.lang-tab-btn')[1];
+            if (enBtn) switchLang(enBtn, 'en');
+        }
+    </script>
+</body>
+</html>

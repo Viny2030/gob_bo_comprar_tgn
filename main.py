@@ -335,6 +335,11 @@ async def licitaciones(request: Request):
     ga_id = os.getenv("GA_MEASUREMENT_ID", "")
     return templates.TemplateResponse(request, "licitaciones.html", {"ga_id": ga_id})
 
+@app.get("/manual", response_class=HTMLResponse)
+async def manual(request: Request):
+    """Manual de usuario en línea, con pestañas Español/English (ver también /api/descargar-manual-es|en)."""
+    return templates.TemplateResponse(request, "manual.html")
+
 # ── API Status ───────────────────────────────────────────────────────────────
 @app.get("/api/status")
 def status():

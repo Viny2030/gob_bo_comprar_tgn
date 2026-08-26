@@ -81,29 +81,93 @@ def obtener_contrat_ocds_api(limit=20):
     # Retornamos un DataFrame vacío estructurado para que el test no falle
     return pd.DataFrame(columns=["ocid", "titulo", "organismo", "monto_contrato", "proveedor", "cuit_proveedor"])
 
+_CUIT_COEF = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2]
+
+_CUIT_TIPO_PERSONA = {
+    "20": "Física (M)", "23": "Física", "24": "Física",
+    "25": "Física",    "26": "Física", "27": "Física (F)",
+    "30": "Jurídica",  "33": "Jurídica", "34": "Jurídica",
+}
+
+
 def validar_cuit_api(cuit):
-    """Simula validación de CUIT contra AFIP/SIPRO."""
+    """
+    Valida el FORMATO de un CUIT/CUIL con el algoritmo real de dígito
+    verificador (módulo 11) que usa AFIP.
+
+    IMPORTANTE — qué SÍ y qué NO hace esto:
+      - SÍ confirma si el número está bien formado (11 dígitos, dígito
+        verificador correcto). Útil para detectar CUITs mal extraídos de
+        un aviso del Boletín Oficial (avisos en PDF, texto libre, OCR).
+      - NO consulta ningún padrón: no confirma que el CUIT esté
+        efectivamente inscripto en AFIP, ni devuelve razón social real,
+        actividad o estado (activo/inactivo). Eso requiere acceso al
+        webservice oficial de AFIP (ws_sr_padron_a13) con certificado
+        digital — no está implementado en este proyecto.
+
+    Antes esta función devolvía datos inventados ("EMPRESA TEST S.A.")
+    sin importar el CUIT recibido; quedó reemplazada por esta validación
+    real.
+    """
+    original = cuit
+    digitos = "".join(ch for ch in str(cuit or "") if ch.isdigit())
+
+    if len(digitos) != 11:
+        return {
+            "cuit": original,
+            "cuit_normalizado": digitos or None,
+            "valido_formato": False,
+            "motivo": "longitud_invalida",
+            "tipo_persona": None,
+            "fuente": "Validación local (módulo 11 AFIP)",
+        }
+
+    suma = sum(int(digitos[i]) * _CUIT_COEF[i] for i in range(10))
+    verificador = 11 - (suma % 11)
+    if verificador == 11:
+        verificador = 0
+
+    if verificador == 10:
+        # Combinación matemáticamente imposible de validar (caso degenerado)
+        return {
+            "cuit": original,
+            "cuit_normalizado": digitos,
+            "valido_formato": False,
+            "motivo": "digito_verificador_no_calculable",
+            "tipo_persona": None,
+            "fuente": "Validación local (módulo 11 AFIP)",
+        }
+
+    valido = verificador == int(digitos[10])
+    prefijo = digitos[:2]
+
     return {
-        "cuit": cuit,
-        "razon_social": "EMPRESA TEST S.A.",
-        "estado_afip": "ACTIVO",
-        "fuente": "Validación Online"
+        "cuit": original,
+        "cuit_normalizado": f"{digitos[:2]}-{digitos[2:10]}-{digitos[10]}",
+        "valido_formato": valido,
+        "motivo": None if valido else "digito_verificador_no_coincide",
+        "tipo_persona": _CUIT_TIPO_PERSONA.get(prefijo, "Desconocido") if valido else None,
+        "fuente": "Validación local (módulo 11 AFIP)",
     }
 
+
 def validar_cuits_lote(cuits):
-    """Valida una lista de CUITs."""
+    """Valida el formato de una lista de CUITs (ver validar_cuit_api)."""
     res = [validar_cuit_api(c) for c in cuits]
     return pd.DataFrame(res)
 
+
 def obtener_sipro_api(nombre=None, cuit=None, limit=10):
-    """Consulta proveedores en SIPRO."""
-    return pd.DataFrame([{
-        "cuit": cuit or "30-00000000-1", 
-        "razon_social": nombre or "PROVEEDOR TEST", 
-        "domicilio": "CALLE FALSA 123",
-        "rubro": "GENERAL",
-        "estado_sipro": "HABILITADO"
-    }])
+    """
+    NO IMPLEMENTADO — placeholder.
+
+    SIPRO (Sistema de Información de Proveedores) no tiene una API pública
+    abierta; consultarlo de verdad requeriría scraping autenticado o un
+    convenio con la Oficina Nacional de Contrataciones. Esta función
+    devuelve un DataFrame vacío en vez de datos inventados para que quede
+    claro que la fuente no está conectada.
+    """
+    return pd.DataFrame(columns=["cuit", "razon_social", "domicilio", "rubro", "estado_sipro"])
 
 def obtener_todo_api():
     """Ejecuta todas las consultas principales para el resumen del test."""

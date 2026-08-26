@@ -400,6 +400,28 @@ function lnk(url, lbl) {
     return url && url !== '' ? `<a href="${url}" target="_blank">${lbl || '↗ Ver'}</a>` : '—';
 }
 
+// Valida el FORMATO de un CUIT (dígito verificador módulo 11, algoritmo real
+// de AFIP). Solo confirma si el número está bien tipeado/extraído — no
+// consulta ningún padrón, no confirma inscripción real en AFIP.
+function validarCuitFormato(cuitRaw) {
+    const d = String(cuitRaw || '').replace(/\D/g, '');
+    if (d.length !== 11) return { valido: false };
+    const coef = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+    let suma = 0;
+    for (let i = 0; i < 10; i++) suma += parseInt(d[i], 10) * coef[i];
+    let verificador = 11 - (suma % 11);
+    if (verificador === 11) verificador = 0;
+    if (verificador === 10) return { valido: false };
+    return { valido: verificador === parseInt(d[10], 10) };
+}
+
+function cuitBadge(cuit) {
+    const v = validarCuitFormato(cuit);
+    return v.valido
+        ? '<span title="Formato válido (dígito verificador AFIP OK)" style="color:#2ec27e">✓</span>'
+        : '<span title="Dígito verificador no coincide — posible error de extracción del aviso BORA" style="color:#e63946">⚠️</span>';
+}
+
 /* ─── EJECUTAR CICLO ─────────────────────────────────────────── */
 async function ejecutarCiclo() {
     const btn     = document.getElementById('btn-ejecutar');
@@ -596,7 +618,7 @@ function renderAdj() {
             <td class="td-name">${r.organismo_contratante || ''}</td>
             <td style="font-size:.75rem">${r.tipo_proceso || ''}</td>
             <td>${r.proveedor_adjudicado || '<span style="color:var(--text-muted)">—</span>'}</td>
-            <td>${r.cuit_proveedor && r.cuit_proveedor !== '' ? `<span class="chip chip-adjudicado">${r.cuit_proveedor}</span>${DATA.meaci_alertas[r.cuit_proveedor] ? ' <span class="chip chip-meaci" title="Sancionado internacionalmente — MEACI">🌍 ALERTA INTERNACIONAL</span>' : ''}` : '<span style="color:var(--accent-red);font-size:.72rem">Sin CUIT</span>'}</td>
+            <td>${r.cuit_proveedor && r.cuit_proveedor !== '' ? `<span class="chip chip-adjudicado">${r.cuit_proveedor} ${cuitBadge(r.cuit_proveedor)}</span>${DATA.meaci_alertas[r.cuit_proveedor] ? ' <span class="chip chip-meaci" title="Sancionado internacionalmente — MEACI">🌍 ALERTA INTERNACIONAL</span>' : ''}` : '<span style="color:var(--accent-red);font-size:.72rem">Sin CUIT</span>'}</td>
             <td class="td-mono">${r.monto_adjudicado || '—'}</td>
             <td class="td-link">${lnk(r.link, '↗')}</td>
         </tr>`).join('');

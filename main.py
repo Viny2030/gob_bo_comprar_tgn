@@ -655,6 +655,29 @@ async def cruce_cuits_bulk(cuits: str):
                 pass
     return {"alertas": alertas, "total_consultados": len(lista), "total_alertas": len(alertas)}
 
+# ── Validación de formato de CUIT (dígito verificador AFIP, local) ──────────
+
+@app.get("/api/cuit/validar")
+def cuit_validar(cuit: str):
+    """
+    Valida el FORMATO de un CUIT/CUIL (algoritmo real de dígito verificador
+    módulo 11 de AFIP). No consulta ningún padrón externo: solo confirma si
+    el número está bien formado, lo cual sirve para detectar CUITs mal
+    extraídos de un aviso del Boletín Oficial. No devuelve razón social ni
+    estado de inscripción real — eso requeriría el webservice oficial de
+    AFIP con certificado digital, que este proyecto no integra.
+    """
+    from apis_oficiales import validar_cuit_api
+    return validar_cuit_api(cuit)
+
+
+@app.get("/api/cuit/validar-lote")
+def cuit_validar_lote(cuits: str):
+    """Valida el formato de varios CUITs separados por coma (ver /api/cuit/validar)."""
+    from apis_oficiales import validar_cuit_api
+    lista = [c.strip() for c in cuits.split(",") if c.strip()][:200]
+    return {"resultados": [validar_cuit_api(c) for c in lista]}
+
 # ── Agentic AI: segunda opinión de Claude sobre la matriz de reglas ─────────
 class TextoAviso(BaseModel):
     texto: str

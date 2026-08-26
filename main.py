@@ -483,6 +483,24 @@ def descargar_instructivo():
     return FileResponse(path=ruta, filename="Instructivo_Monitor_XAI.docx",
                         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
+@app.get("/api/descargar-manual-es")
+def descargar_manual_es():
+    from fastapi.responses import FileResponse
+    ruta = "Monitor_XAI_Manual_ES.docx"
+    if not os.path.exists(ruta):
+        raise HTTPException(status_code=404, detail="Manual en español no disponible")
+    return FileResponse(path=ruta, filename="Monitor_XAI_Manual_ES.docx",
+                        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+@app.get("/api/descargar-manual-en")
+def descargar_manual_en():
+    from fastapi.responses import FileResponse
+    ruta = "Monitor_XAI_Manual_EN.docx"
+    if not os.path.exists(ruta):
+        raise HTTPException(status_code=404, detail="Manual not available")
+    return FileResponse(path=ruta, filename="Monitor_XAI_Manual_EN.docx",
+                        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
 @app.post("/api/licitaciones/ejecutar")
 def ejecutar_licitaciones(fecha: str = None):
     try:

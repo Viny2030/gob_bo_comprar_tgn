@@ -506,19 +506,21 @@ def descargar_manual_en():
     return FileResponse(path=ruta, filename="Monitor_XAI_Manual_EN.docx",
                         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
-@app.post("/api/licitaciones/ejecutar")
-def ejecutar_licitaciones(fecha: str = None):
-    try:
+import threading
+
+# ── Estado del análisis en background ────────────────────────────────────────
+# El scraping (BORA + Comprar + TGN) puede tardar varios minutos en el peor
+# caso, y el proxy/edge de Railway corta las requests HTTP de los clientes
+# bastante antes de eso (~87s observado), devolviendo un 502 con cuerpo de
+# texto plano "upstream error" que el frontend no puede parsear como JSON.
+# Para evitarlo, el análisis corre en un hilo de background: el POST
+# devuelve enseguida y el frontend sondea /api/licitaciones/estado.
+_analisis_job = {"corriendo": False, "fecha": None, "resultado": None, "error": None, "iniciado_en": None}
+_analisis_lock = threading.Lock()
+
+def _ejecutar_pipeline_licitaciones(fecha_str: str) -> dict:
         from diario import (extraer_bora_licitaciones, extraer_bora_adjudicaciones,
                             extraer_comprar, extraer_pagos_tgn, cruzar_fuentes)
-        if fecha:
-            try:
-                datetime.strptime(fecha, "%Y-%m-%d")
-                fecha_str = fecha
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
-        else:
-            fecha_str = datetime.now().strftime("%Y-%m-%d")
         df_bora    = extraer_bora_licitaciones()
         df_adj     = extraer_bora_adjudicaciones(df_bora)
         df_licit   = (df_bora[df_bora["es_adjudicacion"] == False].copy().reset_index(drop=True)
@@ -581,10 +583,47 @@ def ejecutar_licitaciones(fecha: str = None):
             "flujo_completo": flujo_completo, "riesgo_alto": riesgo_alto, "riesgo_medio": riesgo_medio,
             "archivo_reporte": os.path.basename(archivo1), "archivo_flujo": os.path.basename(archivo2),
         }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/licitaciones/ejecutar")
+def ejecutar_licitaciones(fecha: str = None):
+    if fecha:
+        try:
+            datetime.strptime(fecha, "%Y-%m-%d")
+            fecha_str = fecha
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
+    else:
+        fecha_str = datetime.now().strftime("%Y-%m-%d")
+
+    with _analisis_lock:
+        if _analisis_job["corriendo"]:
+            return JSONResponse(status_code=409, content={
+                "status": "en_progreso",
+                "detail": f"Ya hay un análisis en curso (iniciado para el día {_analisis_job['fecha']}). Esperá a que termine.",
+                "fecha": _analisis_job["fecha"],
+            })
+        _analisis_job.update({
+            "corriendo": True, "fecha": fecha_str, "resultado": None, "error": None,
+            "iniciado_en": datetime.now().isoformat(),
+        })
+
+    def _correr_en_background():
+        try:
+            resultado = _ejecutar_pipeline_licitaciones(fecha_str)
+            with _analisis_lock:
+                _analisis_job.update({"corriendo": False, "resultado": resultado, "error": None})
+        except Exception as e:
+            logger.exception("❌ Error ejecutando el análisis de licitaciones en background")
+            with _analisis_lock:
+                _analisis_job.update({"corriendo": False, "resultado": None, "error": str(e)})
+
+    threading.Thread(target=_correr_en_background, daemon=True).start()
+    return JSONResponse(status_code=202, content={"status": "iniciado", "fecha": fecha_str})
+
+@app.get("/api/licitaciones/estado")
+def estado_licitaciones():
+    with _analisis_lock:
+        return dict(_analisis_job)
 
 # ── API Donaciones ───────────────────────────────────────────────────────────
 @app.post("/api/donation-event")

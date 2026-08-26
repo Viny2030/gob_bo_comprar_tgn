@@ -206,7 +206,24 @@
             }
         }
 
+        // ── Parsear una respuesta que debería ser JSON, sin explotar si no lo es ──
+        // (el proxy de Railway puede devolver un 502 con cuerpo de texto plano
+        // "upstream error" cuando una request tarda demasiado; sin este chequeo
+        // el .json() de más abajo tira "Unexpected token 'u'...")
+        async function leerJSON(resp) {
+            const ct = resp.headers.get('content-type') || '';
+            if (!ct.includes('application/json')) {
+                const texto = (await resp.text()).slice(0, 160);
+                throw new Error(`El servidor devolvió una respuesta inesperada (HTTP ${resp.status}): ${texto || 'sin contenido'}`);
+            }
+            return resp.json();
+        }
+
         // ── Ejecutar análisis para el día seleccionado ──
+        // El scraping puede tardar varios minutos en el peor caso, y el proxy de
+        // Railway corta las requests HTTP largas antes de eso. Por eso el POST
+        // solo INICIA el análisis en background y devuelve enseguida; acá
+        // sondeamos /api/licitaciones/estado hasta que termine.
         async function ejecutarAnalisis() {
             if (!diaSeleccionado) {
                 alert('Seleccioná un día primero');
@@ -222,18 +239,48 @@
             resultado.style.display = 'none';
 
             try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 180000);
-
-                const resp = await fetch(`/api/licitaciones/ejecutar?fecha=${diaSeleccionado}`, {
-                    method: 'POST',
-                    signal: controller.signal
+                const respInicio = await fetch(`/api/licitaciones/ejecutar?fecha=${diaSeleccionado}`, {
+                    method: 'POST'
                 });
+                const dataInicio = await leerJSON(respInicio);
 
-                clearTimeout(timeoutId);
-                const data = await resp.json();
+                if (respInicio.status === 409) {
+                    resultado.innerHTML = `
+                        <div class="error">
+                            <h3>⏳ Análisis en curso</h3>
+                            <p>${dataInicio.detail}</p>
+                        </div>`;
+                    spinner.style.display = 'none';
+                    resultado.style.display = 'block';
+                    btn.disabled = false;
+                    return;
+                }
+                if (!respInicio.ok) {
+                    throw new Error(dataInicio.detail || 'No se pudo iniciar el análisis');
+                }
 
-                if (resp.ok) {
+                // ── Sondeo del estado hasta que el background termine ──
+                const inicioSondeo = Date.now();
+                const LIMITE_MS = 8 * 60 * 1000; // 8 minutos
+                let data = null;
+                while (true) {
+                    await new Promise(r => setTimeout(r, 4000));
+                    const respEstado = await fetch('/api/licitaciones/estado');
+                    const estado = await leerJSON(respEstado);
+
+                    if (!estado.corriendo) {
+                        if (estado.error) {
+                            throw new Error(estado.error);
+                        }
+                        data = estado.resultado;
+                        break;
+                    }
+                    if (Date.now() - inicioSondeo > LIMITE_MS) {
+                        throw new Error('Tiempo de espera agotado (8 minutos). El scraping tardó demasiado — probá de nuevo más tarde.');
+                    }
+                }
+
+                {
                     resultado.innerHTML = `
                         <div class="exito">
                             <h3>✅ Análisis completado — ${formatearFecha(diaSeleccionado)}</h3>
@@ -274,23 +321,12 @@
                         </div>`;
                     // Recargar días para marcar el nuevo como "tiene datos"
                     cargarDias();
-                } else {
-                    const detalle = data.detail || 'Error desconocido';
-                    resultado.innerHTML = `
-                        <div class="error">
-                            <h3>❌ Error en el análisis</h3>
-                            <p>${detalle}</p>
-                        </div>`;
                 }
             } catch (e) {
-                let mensaje = e.message;
-                if (e.name === 'AbortError') {
-                    mensaje = 'Tiempo de espera agotado (3 minutos). El scraping tardó demasiado.';
-                }
                 resultado.innerHTML = `
                     <div class="error">
-                        <h3>❌ Error de conexión</h3>
-                        <p>${mensaje}</p>
+                        <h3>❌ Error en el análisis</h3>
+                        <p>${e.message}</p>
                     </div>`;
             }
 

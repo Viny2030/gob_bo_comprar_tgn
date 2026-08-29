@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 from pydantic import BaseModel
 import os
+import re
 import json
 import logging
 import hashlib
@@ -111,13 +112,32 @@ def hash_ip(ip: str) -> str:
     return hashlib.sha256(ip.encode()).hexdigest()[:16]
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+_FECHA_ARCHIVO_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
+
+def _fecha_de_archivo(ruta):
+    """
+    Extrae la fecha del nombre del archivo (reporte_YYYY-MM-DD.xlsx).
+    NO usar os.path.getmtime() aca: git no preserva la fecha del commit como
+    mtime, asi que en la imagen de Docker (checkout + COPY) los ~140 reportes
+    historicos quedan todos con el mismo timestamp de build (o un orden de
+    filesystem no determinista), y ordenar por mtime devuelve un archivo
+    practicamente al azar como "ultimo reporte" en lugar del mas reciente.
+    """
+    m = _FECHA_ARCHIVO_RE.search(os.path.basename(ruta))
+    if m:
+        try:
+            return datetime.strptime(m.group(1), "%Y-%m-%d")
+        except ValueError:
+            pass
+    return datetime.min
+
 def buscar_todos_los_xlsx(base_dir):
     archivos = []
     for root, dirs, files in os.walk(base_dir):
         for f in files:
             if f.startswith("reporte_202") and f.endswith(".xlsx"):
                 archivos.append(os.path.join(root, f))
-    archivos.sort(key=lambda x: os.path.getmtime(x), reverse=True)
+    archivos.sort(key=_fecha_de_archivo, reverse=True)
     return archivos
 
 def etiqueta_archivo(ruta):

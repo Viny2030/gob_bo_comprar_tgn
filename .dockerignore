@@ -6,4 +6,8 @@ __pycache__
 .gitignore
 *.md
 .env
-data/
+# NO ignorar data/: los reportes historicos (data/YYYY-MM/*.xlsx) estan
+# versionados en git a proposito (ver .gitignore) y el backend los lee del
+# filesystem al arrancar (DATA_DIR en main.py). Si se ignoran aca, la imagen
+# de Docker se construye con /app/data vacio en cada deploy -> "0 reportes
+# cargados" en el dashboard aunque el repo tenga meses de historico.

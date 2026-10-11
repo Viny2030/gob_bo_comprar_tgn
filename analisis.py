@@ -91,21 +91,18 @@ MATRIZ_LICITACIONES = {
     },
 
     "Monto Límite": {
-        "descripcion": "El monto adjudicado es cercano (±10%) al umbral que "
-                       "obliga a licitación pública ($10M ARS), sugiriendo "
-                       "fraccionamiento para evitar el procedimiento.",
+        "descripcion": "El monto adjudicado queda justo por debajo (hasta 10%) de un "
+                       "tope que obliga a un procedimiento más competitivo "
+                       "(compulsa abreviada hasta 1.000 módulos; licitación privada "
+                       "hasta 5.000 módulos — Decreto 1030/2016, art. 27), "
+                       "sugiriendo fraccionamiento.",
         "keywords_tipo": None,
         "peso": 2.5,
-        "umbral": 10_000_000,  # ARS — umbral licitación pública
-        "tolerancia": 0.10,    # ±10%
-    },
-
-    "Velocidad Adjudicación": {
-        "descripcion": "El proceso fue adjudicado el mismo día de su publicación "
-                       "en BORA, sin tiempo razonable para que oferentes compitan.",
-        "keywords_tipo": None,
-        "peso": 1.5,
-        "umbral": 0,           # días entre publicación y adjudicación
+        # Topes en módulos; el valor del módulo se configura con MODULO_ARS
+        # (≈ $50.000 en 2026 según la actualización de abril; antes estaba fijo en
+        # $10M, un valor desactualizado).
+        "umbrales_modulos": [1_000, 5_000],
+        "tolerancia": 0.10,    # hasta 10% por debajo del tope
     },
 
     "Proveedor Multi-Organismo": {
@@ -116,6 +113,11 @@ MATRIZ_LICITACIONES = {
         "umbral": 2,           # organismos distintos con el mismo CUIT en TGN
     },
 }
+
+# Nota: se retiró el indicador "Velocidad Adjudicación". Comparaba la fecha del
+# aviso consigo misma (el aviso de adjudicación ES la publicación), por lo que se
+# activaba en el 100% de las filas y sumaba 1,36 a todas.
+MODULO_ARS = float(os.getenv("MODULO_ARS", "50000"))
 
 # Peso máximo posible (suma de todos los pesos) — para normalizar a 0–10
 _PESO_MAX_LICITACIONES = sum(v["peso"] for v in MATRIZ_LICITACIONES.values())
@@ -147,7 +149,7 @@ def evaluar_riesgo(score):
 
 def _parsear_monto(valor):
     """Convierte string de monto '$1.234.567,89' a float."""
-    if not valor:
+    if valor is None or (isinstance(valor, float) and valor != valor) or not str(valor).strip():
         return None
     try:
         limpio = re.sub(r'[^\d,]', '', str(valor)).replace(',', '.')
@@ -244,21 +246,15 @@ def analizar_adjudicaciones(df_adjudicaciones, df_tgn=None):
         # 3. MONTO LÍMITE (fraccionamiento para evitar licitación)
         cfg = MATRIZ_LICITACIONES["Monto Límite"]
         if monto is not None:
-            umbral     = cfg["umbral"]
             tolerancia = cfg["tolerancia"]
-            if umbral * (1 - tolerancia) <= monto <= umbral * (1 + tolerancia):
-                indicadores.append(f"🟡 Monto Límite (${monto:,.0f} ≈ umbral)")
-                score += cfg["peso"]
+            for mod in cfg["umbrales_modulos"]:
+                tope = mod * MODULO_ARS
+                if tope * (1 - tolerancia) <= monto <= tope:
+                    indicadores.append(f"🟡 Monto Límite (${monto:,.0f} justo bajo el tope de {mod:,} módulos)")
+                    score += cfg["peso"]
+                    break
 
-        # 4. VELOCIDAD DE ADJUDICACIÓN (publicado y adjudicado el mismo día)
-        cfg = MATRIZ_LICITACIONES["Velocidad Adjudicación"]
-        fecha_pub = str(row.get("fecha", "")).strip()
-        fecha_ext = str(row.get("fecha_extraccion", row.get("fecha", ""))).strip()
-        if fecha_pub and fecha_ext and fecha_pub == fecha_ext:
-            indicadores.append("🟡 Adjudicación mismo día de publicación")
-            score += cfg["peso"]
-
-        # 5. PROVEEDOR MULTI-ORGANISMO EN TGN
+        # 4. PROVEEDOR MULTI-ORGANISMO EN TGN
         cfg = MATRIZ_LICITACIONES["Proveedor Multi-Organismo"]
         if cuit and cuit in cuit_organismos_tgn:
             n_orgs = len(cuit_organismos_tgn[cuit])

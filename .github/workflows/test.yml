@@ -21,8 +21,8 @@ jobs:
 
       - name: Instalar dependencias
         run: |
-          pip install pytest pandas openpyxl fastapi httpx asyncpg pydantic
+          pip install pytest pandas openpyxl fastapi httpx asyncpg pydantic requests beautifulsoup4 lxml pdfminer.six jinja2 python-multipart
 
       - name: Correr tests
         run: |
-          pytest test_auditoria.py -v
+          pytest test_auditoria.py test_extraccion.py -v

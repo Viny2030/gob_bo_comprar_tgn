@@ -380,6 +380,7 @@ let grafico2 = null;
 function etapaChip(e) {
     if (!e) return '';
     if (e.includes('FLUJO COMPLETO'))  return `<span class="chip chip-flujo">🚨 Flujo Completo</span>`;
+    if (e.includes('ORGANISMO CON PAGOS')) return `<span class="chip chip-adjudicado" title="El organismo contratante tiene pagos en TGN este año; no confirma que este proveedor haya cobrado">💰 Organismo con pagos TGN</span>`;
     if (e.includes('COBRÓ'))           return `<span class="chip chip-pagado">💰 Cobró en TGN</span>`;
     if (e.includes('EN COMPRAR'))      return `<span class="chip chip-comprar">📋 En Comprar</span>`;
     if (e.includes('ADJUDICADO'))      return `<span class="chip chip-adjudicado">✅ Adjudicado</span>`;
@@ -390,6 +391,7 @@ function alertaChip(a) {
     if (!a) return '';
     if (a.includes('FLUJO COMPLETO'))  return `<span class="chip chip-flujo">🚨 Flujo Completo</span>`;
     if (a.includes('cobró'))           return `<span class="chip chip-pagado">🔶 BORA+TGN</span>`;
+    if (a.includes('por organismo'))   return `<span class="chip chip-comprar" title="Cruce por nombre de organismo, no por CUIT">🔶 BORA+TGN (organismo)</span>`;
     if (a.includes('COMPRAR'))         return `<span class="chip chip-comprar">🔷 BORA+Comprar</span>`;
     return `<span class="chip chip-no">📋 Solo BORA</span>`;
 }
@@ -438,12 +440,23 @@ async function ejecutarCiclo() {
     resBox.className = 'resultado-box';
 
     try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 180000);
-        const resp = await fetch('/api/licitaciones/ejecutar', { method: 'POST', signal: controller.signal });
-        clearTimeout(timeout);
-        const data = await resp.json();
-
+        // El análisis corre en segundo plano: se inicia y se consulta el estado
+        const respInicio = await fetch('/api/licitaciones/ejecutar', { method: 'POST' });
+        const ini = await respInicio.json().catch(() => ({}));
+        let resp = respInicio, data = ini;
+        if (respInicio.status === 202) {
+            const t0 = Date.now();
+            while (true) {
+                await new Promise(r => setTimeout(r, 4000));
+                const est = await (await fetch('/api/licitaciones/estado')).json();
+                if (!est.corriendo) {
+                    if (est.error) { resp = { ok: false }; data = { detail: est.error }; }
+                    else { resp = { ok: true }; data = est.resultado || {}; }
+                    break;
+                }
+                if (Date.now() - t0 > 8 * 60 * 1000) throw new Error('Tiempo de espera agotado (8 minutos).');
+            }
+        }
         if (resp.ok) {
             resCont.innerHTML = `
                 <strong>✅ Ciclo completado exitosamente</strong>
@@ -468,7 +481,7 @@ async function ejecutarCiclo() {
             resBox.classList.add('error');
         }
     } catch (e) {
-        const msg = e.name === 'AbortError' ? 'Tiempo de espera agotado (3 minutos).' : e.message;
+        const msg = e.message;
         resCont.innerHTML = `<strong>❌ Error de conexión</strong><br><span style="margin-top:6px;display:block">${msg}</span>`;
         resBox.classList.add('error');
     }
@@ -523,12 +536,12 @@ function renderFlujo(data) {
                     ${riesgoAlto ? `<span class="chip chip-sin-cuit">⚠️ Riesgo ${r.nivel_riesgo_licit}</span>` : ''}
                 </div>
                 ${riesgoAlto ? `
-                <button class="btn-ia" id="btn-ia-${idx}" onclick="explicarConIA(${idx})">🤖 Explicar con IA</button>
+                <button class="btn-ia" id="btn-ia-${idx}" onclick="explicarConIA(${idx})">🤖 Explicar con IA (máx. 3 por día)</button>
                 <div class="ia-box" id="ia-box-${idx}"></div>` : ''}
             </div>
             <div class="flujo-right">
                 ${r.monto_adjudicado_bora && r.monto_adjudicado_bora !== '' ? `<div class="flujo-monto">${r.monto_adjudicado_bora}</div>` : ''}
-                ${r.monto_cobrado_tgn && r.monto_cobrado_tgn !== '' ? `<div class="flujo-monto" style="color:var(--accent-green)">${r.monto_cobrado_tgn}</div>` : ''}
+                ${r.monto_cobrado_tgn && r.monto_cobrado_tgn !== '' ? `<div class="flujo-monto" style="color:var(--accent-green)" title="Crédito pagado por el organismo en el año (Presupuesto Abierto), no un pago a este proveedor">TGN organismo: $${Number(r.monto_cobrado_tgn).toLocaleString('es-AR',{maximumFractionDigits:1})} M</div>` : ''}
                 <div style="font-size:.7rem">${lnk(r.link_bora, '↗ BORA')}</div>
             </div>
         </div>`;
@@ -568,13 +581,13 @@ async function explicarConIA(idx) {
         } else {
             box.innerHTML = `<span class="ia-label">IA no disponible</span>${data.motivo || 'Configurá ANTHROPIC_API_KEY en Railway para habilitar esta función.'}`;
             btn.disabled = false;
-            btn.textContent = '🤖 Explicar con IA';
+            btn.textContent = '🤖 Explicar con IA (máx. 3 por día)';
         }
     } catch (e) {
         box.style.display = 'block';
         box.innerHTML = `<span class="ia-label">Error</span>No se pudo conectar con el servicio de IA.`;
         btn.disabled = false;
-        btn.textContent = '🤖 Explicar con IA';
+        btn.textContent = '🤖 Explicar con IA (máx. 3 por día)';
     }
 }
 

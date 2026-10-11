@@ -244,10 +244,10 @@
                 });
                 const dataInicio = await leerJSON(respInicio);
 
-                if (respInicio.status === 409) {
+                if (respInicio.status === 409 || respInicio.status === 429) {
                     resultado.innerHTML = `
                         <div class="error">
-                            <h3>⏳ Análisis en curso</h3>
+                            <h3>⏳ ${respInicio.status === 429 ? 'Esperá unos minutos' : 'Análisis en curso'}</h3>
                             <p>${dataInicio.detail}</p>
                         </div>`;
                     spinner.style.display = 'none';

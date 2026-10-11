@@ -32,52 +32,69 @@ def get_con_reintentos(url, intentos=3, timeout=60, espera=15, verify_ssl=False)
                 time.sleep(espera)
     raise Exception(f"❌ Fallaron todos los intentos: {url}")
 
+# Extractores de los avisos de adjudicación (texto del PDF del BORA).
+# Revisados contra 116 avisos reales de sep-oct 2026: el proveedor ya no se corta
+# en el primer punto de "S.A." (antes quedaba "TUX S", "PERMAQUIM S"), se leen
+# formatos como "Adjudicatario: X", "Adjudicar a la firma X" y "por un total de
+# ... ($ N)", y los CUIT se validan con el dígito verificador (módulo 11).
+_FIN_NOMBRE = (r'(?=\s*(?:[,;–\-\.\(]\s*)?(?:C\.?U\.?I\.?T|”|(?i:IMPORTE|MONTO|DOMICILIO|RENGL[OÓ]N)|el\s+Rengl|los\s+Rengl|la\s+totalidad|Rengl[oó]n|por\s+(?:un|el|la)\s|por\s+\$|,\s*por|\(\$|\$|\.\s+e\.\s|e\.\s+\d{2}/\d{2}/\d{4}|$))')
+_SOC = r'(?:S\.?\s?A\.?\s?U\.?|S\.?\s?A\.?\s?S\.?|S\.?\s?R\.?\s?L\.?|S\.?\s?A\.?|S\.?\s?E\.?|S\.?\s?C\.?|LTDA\.?|S\.?\s?A\.?\s?C\.?\s?I\.?\s?F\.?(?:\s?I\.?)?)'
+def _cuit_ok(c):
+    d=re.sub(r'\D','',c)
+    if len(d)!=11: return False
+    s=sum(int(a)*m for a,m in zip(d[:10],[5,4,3,2,7,6,5,4,3,2])); v=11-s%11
+    v={11:0,10:9}.get(v,v)
+    return v==int(d[10])
 def extraer_cuit(texto):
-    if not texto:
-        return ""
-    m = re.search(r'\b(\d{2}-\d{7,8}-\d{1})\b', texto)
-    if m:
-        return m.group(1)
-    m = re.search(r'\b(20|23|24|27|30|33|34)\d{9}\b', texto)
-    if m:
-        return m.group(0)
+    if not texto: return ""
+    t=re.sub(r'\s+',' ',texto)
+    for m in re.finditer(r'\b(\d{2})\s?-\s?(\d{7,8})\s?-\s?(\d)\b|\b((?:20|23|24|27|30|33|34)\d{9})\b',t):
+        c=m.group(0).replace(' ','')
+        if _cuit_ok(c):
+            return c
     return ""
-
-def extraer_monto(texto):
-    if not texto:
-        return ""
-    # pdfminer puede insertar espacios dobles entre palabras (kerning del PDF);
-    # colapsamos antes de aplicar regex para que "IMPORTE  ADJUDICADO" matchee.
-    texto_norm = re.sub(r'  +', ' ', texto)
-    m = re.search(
-        r'(?:MONTO\s+TOTAL\s+ADJUDICADO|TOTAL\s+ADJUDICADO|IMPORTE\s+ADJUDICADO|MONTO\s+ADJUDICADO)'
-        r'[^\$\d]*\$?\s*([\d\.,]+)',
-        texto_norm, re.IGNORECASE
-    )
-    if m:
-        return "$" + m.group(1).strip()
-    return ""
-
 def extraer_proveedor(texto):
-    if not texto:
-        return ""
-    # pdfminer puede insertar espacios dobles (kerning); colapsamos para que los
-    # patrones matcheen correctamente y el nombre devuelto no tenga dobles espacios.
-    texto_norm = re.sub(r'  +', ' ', texto)
-    patrones = [
-        r'PROVEEDOR ADJUDICADO[:\s]+([A-ZÁÉÍÓÚÑ][^\n\r]{3,80}?)(?:\s*[,\.]?\s*CUIT|\s*$)',
-        r'ADJUDICATARIO[:\s]+([A-ZÁÉÍÓÚÑ][^\n\r]{3,80}?)(?:\s*[,\.]?\s*CUIT|\s*[,\.])',
-        r'adjudicada?\s+(?:la\s+firma\s+|a\s+la\s+firma\s+|a\s+)([A-ZÁÉÍÓÚÑ][^\n\r]{3,80}?)(?:\s*[,\.]?\s*CUIT|\s*[,\.])',
-        r'adjudicó[^\n\r]*?(?:la\s+firma|a)\s+([A-ZÁÉÍÓÚÑ][^\n\r]{3,80}?)(?:\s*[,\.]?\s*CUIT|\s*[,\.])',
-        r'firma\s+([A-ZÁÉÍÓÚÑ][^\n\r]{3,80}?)\s*[,\.]?\s*(?:CUIT|C\.U\.I\.T)',
-        r'([A-ZÁÉÍÓÚÑ][^\n\r]{3,60}?)\s+CUIT\s*[Nn][°º\.]\s*\d{2}-\d',
-    ]
-    for patron in patrones:
-        m = re.search(patron, texto_norm, re.IGNORECASE)
-        if m:
-            resultado = re.sub(r'\s+', ' ', m.group(1)).strip().rstrip(".,- ")
-            if len(resultado) > 3:
-                return resultado
+    if not texto: return ""
+    t=re.sub(r'\s+',' ',texto)
+    i=t.find('Texto del Aviso'); cuerpo=t[i:] if i>=0 else t
+    pats=[r'(?i:ADJUDICATARI[OA])\s*(?:\d+\s*)?[:\-]?\s*',
+          r'PROVEEDOR(?:ES)?\s+ADJUDICADO\S*\s*[:\-]?\s*',
+          r'(?i:adjudic\w*)[^:;]{0,140}?(?i:a\s+la\s+firma(?:\s+comercial)?(?:\s+que\s+a\s+continuaci[oó]n\s+se\s+detalla)?:?|al\s+oferente|a\s+la\s+empresa|la\s+empresa|al?\s+Sr\.?|a\s+la\s+Sra\.?)\s+',
+          r'(?i:adjudic\w*)\s+a\s+(?!favor|la\s|los\s|las\s|el\s)',
+          r'(?i:la\s+firma)\s+']
+    for p in pats:
+        for m in re.finditer(p,cuerpo):
+            resto=cuerpo[m.end():m.end()+160]
+            resto=re.sub(r'^(?i:Rengl[oó]n(?:es)?\s+N\S*\s*[\d\s,y]+(?:AL\s+\d+)?\s*:\s*)','',resto)
+            n=re.match(r'([A-ZÁÉÍÓÚÑ0-9"“][^;]{2,120}?)'+_FIN_NOMBRE,resto)
+            if not n: continue
+            nom=n.group(1).strip(' ,.-–"“”')
+            # conservar sufijo societario con su punto final
+            msoc=re.match(r'(.*?\b'+_SOC+r')(?=[\s,\(–\-]|$)',n.group(1).strip())
+            if msoc and len(msoc.group(1))>3: nom=msoc.group(1).strip(' ,-–')
+            nom=nom.strip(' "“”')
+            if len(nom)>3 and not re.match(r'(?i)(los|el|la)\s+rengl',nom):
+                return re.sub(r'\s+',' ',nom)
+    return ""
+def _num(s):
+    s=s.strip().rstrip('.,')
+    if re.search(r',\d{1,2}$',s): s=s.replace('.','').replace(',','.')
+    elif re.search(r'\.\d{1,2}$',s) and s.count('.')==1 and ',' in s: s=s.replace(',','')
+    else: s=s.replace('.','').replace(',','')
+    try: return float(s)
+    except: return None
+def extraer_monto(texto):
+    if not texto: return ""
+    t=re.sub(r'\s+',' ',texto)
+    m=re.search(r'(?:MONTO\s+TOTAL\s+ADJUDICADO|TOTAL\s+ADJUDICADO|IMPORTE\s+(?:TOTAL\s+)?ADJUDICADO|MONTO\s+ADJUDICADO|MONTO\s+TOTAL)[^\$\d]{0,40}\$?\s*([\d\.,]{4,})',t,re.I)
+    if not m:
+        i=t.upper().find('ADJUDIC')
+        if i<0: return ""
+        m=re.search(r'(?i:por\s+un\s+(?:monto\s+)?total\s+de|monto\s+total)[^\$]{0,200}\$\s*([\d\.]{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d{4,}(?:,\d{1,2})?)(?![\d])',t[i:])
+        if not m: m=re.search(r'\$\s*([\d\.]{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d{4,}(?:,\d{1,2})?)(?!\s?\d)',t[i:])
+    if m:
+        v=_num(m.group(1))
+        if v and v>=1000: return "$"+m.group(1).strip().rstrip('.')
     return ""
 
 def normalizar_nombre(nombre):
@@ -142,9 +159,17 @@ def obtener_texto_aviso_bora(aviso_id, fecha_pub):
 # ─────────────────────────────────────────
 # SCRAPER 1A: BORA - ÍNDICE SECCIÓN 3RA
 # ─────────────────────────────────────────
-def extraer_bora_licitaciones():
-    url = "https://www.boletinoficial.gob.ar/seccion/tercera"
-    print("\n📰 Extrayendo BORA - Sección Tercera (índice)...")
+def extraer_bora_licitaciones(fecha=None):
+    """
+    Índice de la Sección Tercera del BORA para una fecha (YYYY-MM-DD; hoy por defecto).
+    Usa la URL con fecha (/seccion/tercera/AAAAMMDD) en lugar de la portada: la portada
+    muestra la última edición publicada, así que un feriado o un día sin edición se
+    guardaba como si fuera un día nuevo (17 días duplicados entre feb y ago 2026).
+    Si esa fecha no tiene edición, devuelve vacío.
+    """
+    fecha = fecha or datetime.now().strftime("%Y-%m-%d")
+    url = f"https://www.boletinoficial.gob.ar/seccion/tercera/{fecha.replace('-', '')}"
+    print(f"\n📰 Extrayendo BORA - Sección Tercera (índice del {fecha})...")
     try:
         response = get_con_reintentos(url)
         soup = BeautifulSoup(response.text, "html.parser")
@@ -191,6 +216,11 @@ def extraer_bora_licitaciones():
                     "fuente":            "BORA Sección 3ra",
                 })
 
+        # Solo avisos publicados en la fecha pedida (si no hubo edición, queda vacío)
+        datos = [d for d in datos if d["fecha_publicacion"] == fecha]
+        if not datos:
+            print(f"  ⚠️ El BORA no tiene edición de la Sección Tercera para {fecha}")
+            return pd.DataFrame()
         adj = sum(1 for d in datos if d["es_adjudicacion"])
         print(f"  ✅ {len(datos)} avisos ({adj} adjudicaciones, {len(datos)-adj} licitaciones)")
         return pd.DataFrame(datos)
@@ -338,6 +368,10 @@ def extraer_pagos_tgn():
 
     try:
         r = requests.post(url, headers=headers_api, json=body, timeout=60, verify=False)
+        if r.status_code in (401, 403):
+            print(f"  ❌ TGN respondió {r.status_code}: el TGN_TOKEN está vencido o es inválido.")
+            print("     Renovarlo en presupuestoabierto.gob.ar y actualizar el secret TGN_TOKEN (GitHub) y la variable en Railway.")
+            return pd.DataFrame()
         r.raise_for_status()
 
         df = pd.read_csv(io.StringIO(r.text), sep=",", on_bad_lines="skip")
@@ -477,8 +511,13 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
         en_comprar = len(comprar_matches) > 0
         en_tgn     = tgn_match is not None
 
-        if cuit and en_tgn:
+        # El cruce con TGN es casi siempre por ORGANISMO (la API de Presupuesto Abierto
+        # no trae CUIT del beneficiario): indica que el organismo contratante tiene
+        # pagos ejecutados en el año, no que este proveedor haya cobrado.
+        if cuit and en_tgn and metodo_cruce == "CUIT":
             etapa = "💰 ADJUDICADO + COBRÓ"
+        elif cuit and en_tgn:
+            etapa = "💰 ADJUDICADO + ORGANISMO CON PAGOS TGN"
         elif cuit and en_comprar:
             etapa = "📋 ADJUDICADO + EN COMPRAR"
         elif cuit:
@@ -488,7 +527,7 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
 
         if en_comprar and en_tgn and cuit:
             alerta = "🚨 FLUJO COMPLETO: BORA→COMPRAR→TGN"
-        elif en_tgn and cuit:
+        elif en_tgn and cuit and metodo_cruce == "CUIT":
             alerta = "🔶 BORA + TGN (cobró)"
         elif en_tgn:
             alerta = "🔶 BORA + TGN (por organismo)"
@@ -498,7 +537,7 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
             alerta = "📋 SOLO BORA"
 
         resultados.append({
-            "fecha":                    adj.get("fecha_extraccion"),
+            "fecha":                    adj.get("fecha_publicacion") or adj.get("fecha_extraccion"),
             "organismo_contratante":    organismo,
             "tipo_proceso_bora":        adj.get("tipo_proceso"),
             "link_bora":                adj.get("link"),
@@ -511,6 +550,7 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
             "nro_proceso_comprar":      comprar_matches[0].get("nro_proceso", "") if comprar_matches else "",
             "cobro_en_tgn":             "✅ SÍ" if en_tgn else "❌ NO",
             "beneficiario_tgn":         tgn_match["beneficiario"] if en_tgn else "",
+            # Crédito pagado del ORGANISMO en el año, en millones de pesos (Presupuesto Abierto)
             "monto_cobrado_tgn":        tgn_match["monto_pagado"] if en_tgn else "",
             "metodo_cruce_tgn":         metodo_cruce,
             "etapa":                    etapa,
@@ -521,8 +561,10 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
 
     # ── Deduplicar: un organismo+cuit no debe aparecer más de una vez ──────
     if not df.empty:
+        # Se incluye el link del aviso: sin él, dos adjudicaciones distintas del mismo
+        # organismo sin CUIT extraído se fusionaban (≈79 avisos perdidos feb-oct 2026).
         df = df.drop_duplicates(
-            subset=["organismo_contratante", "cuit_proveedor", "fecha"],
+            subset=["organismo_contratante", "cuit_proveedor", "fecha", "link_bora"],
             keep="first"
         ).reset_index(drop=True)
 
@@ -669,6 +711,12 @@ if __name__ == "__main__":
         print("   Script finalizado sin ejecutar scrapers.")
         exit(0)
 
+    # Segunda corrida del día (reintento): si el reporte de hoy ya tiene datos del BORA, no rehacer
+    _rep_hoy = os.path.join("data", hoy.strftime("%Y-%m"), f"reporte_{hoy.strftime('%Y-%m-%d')}.xlsx")
+    if os.path.exists(_rep_hoy):
+        print(f"✅ El reporte de hoy ya existe ({_rep_hoy}) — nada que reintentar.")
+        exit(0)
+
     print("🚀 Ciclo Integrado: BORA + Comprar + TGN")
     print(f"📅 {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
 
@@ -679,6 +727,11 @@ if __name__ == "__main__":
         os.system("pip install pdfminer.six -q")
 
     df_bora_indice    = extraer_bora_licitaciones()
+    if df_bora_indice.empty:
+        # Sin edición del BORA (feriado) o el sitio no respondió: no se guarda un reporte
+        # vacío; la segunda corrida programada del día vuelve a intentar.
+        print("⏭️  Sin avisos del BORA para hoy — no se genera reporte.")
+        exit(0)
     df_adjudicaciones = extraer_bora_adjudicaciones(df_bora_indice)
 
     df_licitaciones = pd.DataFrame()

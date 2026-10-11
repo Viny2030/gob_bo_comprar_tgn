@@ -68,7 +68,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 _df_cache = None
 
 # ── MEACI URL (Monitor Internacional) ───────────────────────────────────────
-MEACI_URL = "https://mapatransparencia-production.up.railway.app"
+# Antes apuntaba a mapatransparencia-production y a /api/cruce-cuit, que no existen
+# (404): el cruce con sanciones internacionales nunca devolvía nada.
+MEACI_URL = os.getenv("MEACI_URL", "https://meaci-production.up.railway.app").rstrip("/")
 
 # ── DB helpers ───────────────────────────────────────────────────────────────
 async def get_db() -> Optional[asyncpg.Pool]:
@@ -150,7 +152,9 @@ def leer_hoja(ruta, hojas_preferidas):
         hoja = next((h for h in hojas_preferidas if h in xl.sheet_names), None)
         if not hoja:
             return []
-        df = xl.parse(hoja).fillna("").astype(str)
+        # dtype=str: si no, los CUIT sin guiones se leen como número ("30715935577.0")
+        # y fallan el cruce con MEACI y la validación de dígito verificador.
+        df = xl.parse(hoja, dtype=str).fillna("")
         return df.to_dict(orient="records")
     except Exception as e:
         print(f"Error leyendo {ruta}: {e}")
@@ -444,7 +448,7 @@ async def datos_licitaciones(fecha: str = None):
     cuits_adj = list({r.get("cuit_proveedor", "") for r in bora_adj if r.get("cuit_proveedor", "")})
     if cuits_adj:
         try:
-            async with httpx.AsyncClient(timeout=6) as client:
+            async with httpx.AsyncClient(timeout=10) as client:
                 r_meaci = await client.get(
                     f"{MEACI_URL}/api/cruce-cuits-bulk",
                     params={"cuits": ",".join(cuits_adj[:50])}
@@ -474,6 +478,8 @@ def ejecutar_analisis():
         df_nuevo = diario.extraer_comprar()
         if df_nuevo is None or df_nuevo.empty:
             raise HTTPException(status_code=404, detail="No se pudieron obtener datos del portal.")
+        df_nuevo = df_nuevo.copy()
+        df_nuevo["detalle"] = df_nuevo.get("nombre_proceso", "")  # analizar_boletin lee "detalle"
         df_res, path_excel, _ = analizar_boletin(df_nuevo)
         set_cache(df_res)
         return {"status": "ok", "reporte": os.path.basename(path_excel) if path_excel else "guardado_en_memoria",
@@ -537,17 +543,28 @@ import threading
 # devuelve enseguida y el frontend sondea /api/licitaciones/estado.
 _analisis_job = {"corriendo": False, "fecha": None, "resultado": None, "error": None, "iniciado_en": None}
 _analisis_lock = threading.Lock()
+# Cada análisis en vivo baja ~60 PDFs del BORA: se limita a uno cada 10 minutos.
+EJECUTAR_ESPERA_SEG = int(os.getenv("EJECUTAR_ESPERA_SEG", "600"))
 
 def _ejecutar_pipeline_licitaciones(fecha_str: str) -> dict:
         from diario import (extraer_bora_licitaciones, extraer_bora_adjudicaciones,
                             extraer_comprar, extraer_pagos_tgn, cruzar_fuentes)
-        df_bora    = extraer_bora_licitaciones()
+        # El BORA se consulta para la fecha pedida (antes se bajaba siempre la edición
+        # de hoy y se guardaba con la fecha elegida). Comprar y TGN solo tienen el
+        # estado actual, así que para días pasados no se mezclan.
+        df_bora    = extraer_bora_licitaciones(fecha_str)
+        if df_bora.empty:
+            raise RuntimeError(f"El BORA no tiene avisos de la Sección Tercera para {fecha_str} (feriado, fin de semana o sitio caído).")
         df_adj     = extraer_bora_adjudicaciones(df_bora)
         df_licit   = (df_bora[df_bora["es_adjudicacion"] == False].copy().reset_index(drop=True)
                       if not df_bora.empty else pd.DataFrame())
-        df_comprar = extraer_comprar()
-        df_tgn     = extraer_pagos_tgn()
+        es_hoy     = fecha_str == datetime.now().strftime("%Y-%m-%d")
+        df_comprar = extraer_comprar() if es_hoy else pd.DataFrame()
+        df_tgn     = extraer_pagos_tgn() if es_hoy else pd.DataFrame()
         df_cruce   = cruzar_fuentes(df_adj, df_comprar, df_tgn)
+        if not df_cruce.empty:
+            from analisis import analizar_adjudicaciones
+            df_cruce = analizar_adjudicaciones(df_cruce, df_tgn)
         archivo1, archivo2 = guardar_excels_con_fecha(df_cruce, df_adj, df_licit, df_comprar, df_tgn, fecha_str)
         con_cuit       = int(df_adj["cuit_proveedor"].astype(bool).sum()) if not df_adj.empty else 0
         flujo_completo = (int((df_cruce["alerta"] == "🚨 FLUJO COMPLETO: BORA→COMPRAR→TGN").sum())
@@ -616,6 +633,13 @@ def ejecutar_licitaciones(fecha: str = None):
         fecha_str = datetime.now().strftime("%Y-%m-%d")
 
     with _analisis_lock:
+        ultimo = _analisis_job.get("terminado_en")
+        if ultimo and (datetime.now() - ultimo).total_seconds() < EJECUTAR_ESPERA_SEG and not _analisis_job["error"]:
+            faltan = int(EJECUTAR_ESPERA_SEG - (datetime.now() - ultimo).total_seconds())
+            return JSONResponse(status_code=429, content={
+                "status": "espera",
+                "detail": f"Se ejecutó un análisis hace poco. Probá de nuevo en {max(faltan // 60, 1)} min.",
+            })
         if _analisis_job["corriendo"]:
             return JSONResponse(status_code=409, content={
                 "status": "en_progreso",
@@ -631,7 +655,8 @@ def ejecutar_licitaciones(fecha: str = None):
         try:
             resultado = _ejecutar_pipeline_licitaciones(fecha_str)
             with _analisis_lock:
-                _analisis_job.update({"corriendo": False, "resultado": resultado, "error": None})
+                _analisis_job.update({"corriendo": False, "resultado": resultado, "error": None,
+                                      "terminado_en": datetime.now()})
         except Exception as e:
             logger.exception("❌ Error ejecutando el análisis de licitaciones en background")
             with _analisis_lock:
@@ -643,7 +668,9 @@ def ejecutar_licitaciones(fecha: str = None):
 @app.get("/api/licitaciones/estado")
 def estado_licitaciones():
     with _analisis_lock:
-        return dict(_analisis_job)
+        d = dict(_analisis_job)
+        d.pop("terminado_en", None)
+        return d
 
 # ── API Donaciones ───────────────────────────────────────────────────────────
 @app.post("/api/donation-event")
@@ -712,29 +739,28 @@ async def donation_stats(
 async def cruce_cuit(cuit: str):
     """Consulta si un CUIT está sancionado internacionalmente (vía MEACI)."""
     try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            r = await client.get(f"{MEACI_URL}/api/cruce-cuit", params={"cuit": cuit})
+        async with httpx.AsyncClient(timeout=8) as client:
+            r = await client.get(f"{MEACI_URL}/api/empresas/cuit/{cuit}")
             if r.status_code == 200:
-                return r.json()
-            return {"cuit": cuit, "sancionado": False, "fuente": "MEACI", "detalle": "sin datos"}
+                return {"cuit": cuit, "sancionado": True, "fuente": "MEACI", "empresa": r.json()}
+            if r.status_code == 404:
+                return {"cuit": cuit, "sancionado": False, "fuente": "MEACI", "detalle": "sin coincidencias"}
+            return {"cuit": cuit, "sancionado": False, "fuente": "MEACI", "error": f"MEACI respondió {r.status_code}"}
     except Exception as e:
         return {"cuit": cuit, "sancionado": False, "fuente": "MEACI", "error": str(e)}
 
 @app.get("/api/cruce-cuits-bulk")
 async def cruce_cuits_bulk(cuits: str):
     """Consulta múltiples CUITs separados por coma. Retorna solo los sancionados."""
-    lista = [c.strip() for c in cuits.split(",") if c.strip()]
+    lista = [c.strip() for c in cuits.split(",") if c.strip()][:50]  # máximo 50 por llamada
     alertas = {}
-    async with httpx.AsyncClient(timeout=8) as client:
-        for cuit in lista[:50]:  # máximo 50 por llamada
-            try:
-                r = await client.get(f"{MEACI_URL}/api/cruce-cuit", params={"cuit": cuit})
-                if r.status_code == 200:
-                    data = r.json()
-                    if data.get("sancionado"):
-                        alertas[cuit] = data
-            except Exception:
-                pass
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(f"{MEACI_URL}/api/cruce-cuits-bulk", params={"cuits": ",".join(lista)})
+            if r.status_code == 200:
+                alertas = r.json().get("alertas", {})
+    except Exception:
+        pass
     return {"alertas": alertas, "total_consultados": len(lista), "total_alertas": len(alertas)}
 
 # ── Validación de formato de CUIT (dígito verificador AFIP, local) ──────────
@@ -775,20 +801,68 @@ class FilaRiesgo(BaseModel):
     etapa:                 Optional[str] = ""
     alerta:                Optional[str] = ""
 
+# Límite de uso de la IA: cada consulta tiene costo. 3 usos por visitante (IP) por
+# día y un tope diario total para todo el sitio. Se cuenta solo cuando la IA responde.
+IA_LIMITE_POR_IP  = int(os.getenv("IA_LIMITE_POR_IP", "3"))
+IA_LIMITE_GLOBAL  = int(os.getenv("IA_LIMITE_GLOBAL_DIA", "30"))
+_ia_usos = {"dia": None, "por_ip": {}, "total": 0}
+_ia_lock = threading.Lock()
+
+def _ip_cliente(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    return (fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "")) or "desconocida"
+
+def _ia_reservar(request: Request):
+    """Devuelve (ok, clave_ip, restantes). Reinicia los contadores cada día."""
+    hoy = datetime.now(timezone.utc).date()
+    ip = hash_ip(_ip_cliente(request))
+    with _ia_lock:
+        if _ia_usos["dia"] != hoy:
+            _ia_usos.update({"dia": hoy, "por_ip": {}, "total": 0})
+        usados = _ia_usos["por_ip"].get(ip, 0)
+        if usados >= IA_LIMITE_POR_IP or _ia_usos["total"] >= IA_LIMITE_GLOBAL:
+            return False, ip, 0
+        _ia_usos["por_ip"][ip] = usados + 1
+        _ia_usos["total"] += 1
+        return True, ip, IA_LIMITE_POR_IP - usados - 1
+
+def _ia_devolver(ip: str):
+    with _ia_lock:
+        if _ia_usos["por_ip"].get(ip, 0) > 0:
+            _ia_usos["por_ip"][ip] -= 1
+            _ia_usos["total"] = max(_ia_usos["total"] - 1, 0)
+
+def _ia_con_limite(request: Request, fn):
+    from agentic_ai import ia_disponible
+    if not ia_disponible():
+        return fn()  # responde "no disponible" sin consumir usos
+    ok, ip, restantes = _ia_reservar(request)
+    if not ok:
+        return JSONResponse(status_code=429, content={
+            "disponible": False,
+            "motivo": f"Alcanzaste el límite de {IA_LIMITE_POR_IP} consultas con IA por día. Probá mañana.",
+        })
+    resultado = fn()
+    if not resultado.get("disponible"):
+        _ia_devolver(ip)  # si falló, no cuenta
+    else:
+        resultado["usos_restantes_hoy"] = restantes
+    return resultado
+
 @app.get("/api/ia/status")
 def ia_status():
     from agentic_ai import ia_disponible
-    return {"disponible": ia_disponible()}
+    return {"disponible": ia_disponible(), "limite_por_dia": IA_LIMITE_POR_IP}
 
 @app.post("/api/ia/clasificar")
-def ia_clasificar(payload: TextoAviso):
+def ia_clasificar(payload: TextoAviso, request: Request):
     from agentic_ai import clasificar_aviso_ia
-    return clasificar_aviso_ia(payload.texto, payload.clasificacion_reglas or "")
+    return _ia_con_limite(request, lambda: clasificar_aviso_ia(payload.texto[:4000], payload.clasificacion_reglas or ""))
 
 @app.post("/api/ia/explicar-riesgo")
-def ia_explicar_riesgo(fila: FilaRiesgo):
+def ia_explicar_riesgo(fila: FilaRiesgo, request: Request):
     from agentic_ai import explicar_riesgo_licitacion
-    return explicar_riesgo_licitacion(fila.model_dump())
+    return _ia_con_limite(request, lambda: explicar_riesgo_licitacion(fila.model_dump()))
 
 # ── Healthcheck ──────────────────────────────────────────────────────────────
 @app.get("/health")

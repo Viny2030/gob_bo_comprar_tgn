@@ -271,6 +271,10 @@ def analizar_adjudicaciones(df_adjudicaciones, df_tgn=None):
         lambda s: round(min(s / _PESO_MAX_LICITACIONES * 10, 10), 2)
     )
     df["nivel_riesgo_licit"]  = df["indice_riesgo_licit"].apply(evaluar_riesgo)
+    # Una Contratación Directa (sin competencia) queda como mínimo en riesgo Medio,
+    # aunque sea el único indicador (el índice numérico no se altera).
+    es_cd = df["indicadores_riesgo"].str.contains("Contratación Directa", na=False)
+    df.loc[es_cd & (df["nivel_riesgo_licit"] == "Bajo"), "nivel_riesgo_licit"] = "Medio"
 
     # Resumen por consola
     alto   = (df["nivel_riesgo_licit"] == "Alto").sum()

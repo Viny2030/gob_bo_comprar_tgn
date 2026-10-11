@@ -100,3 +100,9 @@ def test_ia_fallida_no_consume_uso(monkeypatch):
     for _ in range(5):
         assert c.post("/api/ia/explicar-riesgo", json={}).status_code == 200
     assert main._ia_usos["total"] == 0
+
+
+def test_contratacion_directa_sola_es_medio():
+    df = analizar_adjudicaciones(pd.DataFrame([_fila(tipo_proceso_bora="Contratación Directa 18/26")]))
+    assert df.iloc[0]["nivel_riesgo_licit"] == "Medio"
+    assert df.iloc[0]["indice_riesgo_licit"] < 4

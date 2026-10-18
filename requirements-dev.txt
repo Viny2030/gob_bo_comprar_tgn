@@ -1,0 +1,5 @@
+# Dependencias de desarrollo: tests y generación del manual.
+# Producción usa solo requirements.txt.
+-r requirements.txt
+pytest>=8.0
+python-docx>=1.1

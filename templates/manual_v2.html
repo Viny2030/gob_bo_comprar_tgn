@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual de Usuario / User Manual - Monitor XAI</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- Generado por tools/generar_manual.py a partir de docs/manual/*.md: no editar a mano. -->
+    <style>
+        .lang-tabs { display:flex; border-bottom:1px solid var(--border); margin-bottom:20px; }
+        .lang-tab-btn { background:none; border:none; padding:12px 22px; font-size:.9rem; font-weight:600;
+            color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; font-family:var(--sans); }
+        .lang-tab-btn:hover { color:var(--text-primary); }
+        .lang-tab-btn.active { color:var(--accent-cyan); border-bottom-color:var(--accent-cyan); }
+        .lang-content { display:none; }
+        .lang-content.active { display:block; }
+        .manual-toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
+        .manual-toc { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:24px; }
+        .manual-toc a { font-size:.78rem; color:var(--text-secondary); text-decoration:none; background:rgba(255,255,255,0.03);
+            border:1px solid var(--border); border-radius:999px; padding:6px 14px; }
+        .manual-toc a:hover { color:var(--accent-cyan); border-color:var(--border-bright); }
+        .manual-portada { color:var(--text-secondary); margin-bottom:18px; line-height:1.7; }
+        .manual-h2 { font-size:1.3rem; color:var(--text-primary); margin:8px 0 10px; scroll-margin-top:20px; }
+        .doc-section h3.sec-h3 { font-size:1rem; color:var(--text-primary); margin:18px 0 8px; }
+        .manual-p { color:var(--text-secondary); line-height:1.7; margin-bottom:12px; }
+        .manual-list { padding-left:22px; color:var(--text-secondary); line-height:1.8; margin-bottom:12px; }
+        .manual-list strong, .manual-p strong { color:var(--text-primary); }
+        .tabla-wrap { overflow-x:auto; margin:10px 0 16px; }
+        .manual-table { width:100%; border-collapse:collapse; font-size:.86rem; }
+        .manual-table th { text-align:left; padding:8px; color:var(--text-primary); border-bottom:1px solid var(--border-bright); }
+        .manual-table td { padding:8px; color:var(--text-secondary); border-bottom:1px solid var(--border); vertical-align:top; }
+        .callout { border-radius:10px; padding:16px 18px; margin:16px 0; font-size:.88rem; line-height:1.7; border:1px solid var(--border); }
+        .callout.info { background:rgba(6,182,212,0.06); border-left:3px solid var(--accent-cyan); color:var(--text-secondary); }
+        .callout.warn { background:rgba(245,158,11,0.07); border-left:3px solid var(--accent-amber); color:var(--text-secondary); }
+        .callout.legal { background:rgba(239,68,68,0.06); border-left:3px solid var(--accent-red); color:var(--text-secondary); }
+        .callout strong { color:var(--text-primary); }
+        code.inline { font-family:var(--mono); background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px; font-size:.85em; color:var(--accent-cyan); }
+        pre.codeblock { background:var(--bg-secondary); border:1px solid var(--border); border-radius:8px; padding:14px 16px;
+            overflow-x:auto; font-family:var(--mono); font-size:.8rem; color:var(--text-primary); margin:12px 0; line-height:1.6; }
+        .doc-section a { color:var(--accent-cyan); }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="header-brand">
+                <h1>⚖️ Monitor XAI <span class="badge">v1.0</span></h1>
+                <p>Ph.D. Vicente Humberto Monteverde · Algoritmos contra la Corrupción</p>
+            </div>
+            <nav>
+                <a href="/">📊 Dashboard</a>
+                <a href="/licitaciones">🏛️ Licitaciones</a>
+                <a href="/analisis-vivo">🚀 Análisis en Vivo</a>
+                <a href="/documentacion">📖 Documentación</a>
+                <a href="/manual-v2" class="active">📘 Manual</a>
+                <a href="/estado">🩺 Estado</a>
+                <a href="/docs">🔧 API</a>
+            </nav>
+        </div>
+    </header>
+    <main>
+        <section class="doc-section" style="padding-bottom:0;">
+            <div class="manual-toolbar">
+                <h2 style="border:none; margin:0; padding:0;">📘 Manual de Usuario / User Manual</h2>
+                <div style="display:flex; gap:10px;">
+                    <a href="/api/descargar-manual-v2-es" class="btn-descarga" style="padding:8px 16px; font-size:.78rem;">📥 .docx ES</a>
+                    <a href="/api/descargar-manual-v2-en" class="btn-descarga" style="padding:8px 16px; font-size:.78rem;">📥 .docx EN</a>
+                </div>
+            </div>
+            <div class="lang-tabs">
+                <button class="lang-tab-btn active" data-lang="es" onclick="switchLang('es')">🇦🇷 Español</button>
+                <button class="lang-tab-btn" data-lang="en" onclick="switchLang('en')">🇬🇧 English</button>
+            </div>
+        </section>
+{% raw %}
+<div id="lang-es" class="lang-content active" lang="es">
+<div class="manual-portada"><p>Monitor de Contratos y Licitaciones Públicas. Basado en la Teoría de Fenómenos Corruptivos de Vicente Humberto Monteverde, Ph.D.</p><p>Versión del manual: octubre de 2026 · gobbocomprartgn-production.up.railway.app</p></div>
+<div class="manual-toc"><a href="#es-1">1. ¿Qué es el Monitor XAI?</a><a href="#es-2">2. Qué mide</a><a href="#es-3">3. Fuentes de datos y sus límites</a><a href="#es-4">4. Actualización automática</a><a href="#es-5">5. Estructura de navegación</a><a href="#es-6">6. Dashboard</a><a href="#es-7">7. Análisis en Vivo</a><a href="#es-8">8. Licitaciones</a><a href="#es-9">9. Validación de formato de CUIT</a><a href="#es-10">10. Cruce de sanciones internacionales (MEACI)</a><a href="#es-11">11. Segunda opinión con IA</a><a href="#es-12">12. Estado del sistema</a><a href="#es-13">13. Cómo interpretar los resultados</a><a href="#es-14">14. API REST</a><a href="#es-15">15. Flujo de trabajo recomendado</a><a href="#es-16">16. Descargas</a><a href="#es-17">17. Aviso</a></div>
+<section class="doc-section" id="es-1"><h2 class="manual-h2">1. ¿Qué es el Monitor XAI?</h2>
+<p class="manual-p">El Monitor XAI (eXplainable Artificial Intelligence, inteligencia artificial explicable) es una plataforma web de auditoría automatizada de las contrataciones del Estado nacional argentino. Todos los días hábiles lee los avisos del Boletín Oficial (BORA), los cruza con Comprar.gob.ar y con la Tesorería General de la Nación (TGN), y aplica una matriz de indicadores de riesgo. Cada resultado se puede explicar: el sistema muestra qué indicador se activó y por qué.</p>
+<div class="callout info"><p><strong>Importante:</strong> el sistema NO detecta delitos penales, no es un canal de denuncia y no analiza la conducta de personas individuales. Analiza decisiones discrecionales del Estado y señala patrones que merecen revisión.</p></div>
+</section>
+<section class="doc-section" id="es-2"><h2 class="manual-h2">2. Qué mide: dos matrices</h2>
+<p class="manual-p">El sistema usa dos matrices distintas. Es importante no confundirlas.</p>
+<h3 class="sec-h3">2.1 Matriz de Riesgo Licitatorio (la que ve en Licitaciones y en el Dashboard)</h3>
+<p class="manual-p">Se aplica a cada adjudicación publicada en el BORA. Suma el peso de los indicadores que se activan:</p>
+<div class="tabla-wrap"><table class="manual-table"><thead><tr><th>Indicador</th><th>Peso</th><th>Cuándo se activa</th></tr></thead><tbody><tr><td>Contratación Directa</td><td>3,0</td><td>El tipo de proceso es contratación directa, por excepción o compulsa abreviada.</td></tr><tr><td>Proveedor Único</td><td>2,5</td><td>El mismo CUIT aparece en dos o más adjudicaciones del mismo día.</td></tr><tr><td>Monto Límite</td><td>2,5</td><td>El monto queda hasta un 10% por debajo de un tope que obliga a un procedimiento más competitivo (1.000 o 5.000 módulos, Decreto 1030/2016, art. 27). Sugiere fraccionamiento.</td></tr><tr><td>Proveedor Multi-Organismo</td><td>1,5</td><td>El mismo CUIT cobra en varios organismos en TGN. Hoy no puede activarse: la API de TGN no informa el CUIT del beneficiario.</td></tr></tbody></table></div>
+<p class="manual-p">El <strong>índice de riesgo (0 a 10)</strong> es la suma de los pesos dividida por 9,5 y multiplicada por 10. Como el último indicador no puede activarse, el valor máximo posible hoy es 8,42.</p>
+<div class="tabla-wrap"><table class="manual-table"><thead><tr><th>Nivel</th><th>Índice</th><th>Observación</th></tr></thead><tbody><tr><td>Alto</td><td>7 o más</td><td>Requiere, en la práctica, que se activen juntos Contratación Directa, Proveedor Único y Monto Límite.</td></tr><tr><td>Medio</td><td>4 a 6,99</td><td>Una Contratación Directa queda siempre como mínimo en Medio, aunque su índice sea 3,16.</td></tr><tr><td>Bajo</td><td>menos de 4</td><td>Bajo no significa &quot;sin riesgo&quot;: significa que no se activó ningún indicador de la matriz.</td></tr></tbody></table></div>
+<h3 class="sec-h3">2.2 Escenarios teóricos de transferencia regresiva</h3>
+<p class="manual-p">Es el marco conceptual del Dr. Monteverde: la Gran Corrupción no se limita a actos ilegales, sino que incluye decisiones legales que trasladan ingresos desde sectores con menos poder de negociación hacia sectores con más. El sistema clasifica textos en siete escenarios mediante palabras clave:</p>
+<div class="tabla-wrap"><table class="manual-table"><thead><tr><th>Escenario</th><th>Peso</th><th>Dirección de la transferencia</th></tr></thead><tbody><tr><td>Jubilaciones / Pensiones</td><td>10,0</td><td>Jubilados → Estado</td></tr><tr><td>Traslado de Impuestos</td><td>9,5</td><td>Contribuyentes → Estado</td></tr><tr><td>Privatización / Concesión</td><td>9,0</td><td>Estado → Privados</td></tr><tr><td>Obra Pública / Contratos</td><td>8,5</td><td>Estado → Empresas contratistas</td></tr><tr><td>Tarifas de Servicios Públicos</td><td>7,5</td><td>Usuarios → Concesionarias</td></tr><tr><td>Precios de Consumo Regulados</td><td>6,5</td><td>Consumidores → Productores</td></tr><tr><td>Salarios y Paritarias</td><td>5,5</td><td>Asalariados → Empleadores</td></tr></tbody></table></div>
+<p class="manual-p">Esta clasificación se usa en el endpoint <code class="inline">POST /api/analisis</code> y en la segunda opinión de la IA (Sección 11). No interviene en el índice de riesgo de las licitaciones.</p>
+<p class="manual-p">Referencia: Monteverde, V. H. (2020). Great corruption – theory of corrupt phenomena. Journal of Financial Crime, Vol. 28 No. 2, pp. 580-595. <a href="https://doi.org/10.1108/JFC-04-2020-0062" target="_blank">https://doi.org/10.1108/JFC-04-2020-0062</a></p>
+</section>
+<section class="doc-section" id="es-3"><h2 class="manual-h2">3. Fuentes de datos y sus límites</h2>
+<ul class="manual-list"><li><strong>Boletín Oficial (BORA), Sección Tercera:</strong> índice de avisos del día y texto de cada adjudicación (a veces un PDF). De ese texto se extraen el proveedor, el CUIT y el monto; la extracción puede fallar.</li><li><strong>Comprar.gob.ar:</strong> procesos con apertura próxima, tal como figuran en el momento de la consulta. No hay histórico: para días pasados no se consulta.</li><li><strong>TGN (Presupuesto Abierto):</strong> crédito pagado en el año por cada organismo, en millones de pesos. No informa el CUIT del beneficiario, así que <strong>no confirma que un proveedor puntual haya cobrado</strong>. Tampoco tiene histórico diario.</li></ul>
+<p class="manual-p">Los cruces con Comprar y TGN se hacen por coincidencia de palabras en el nombre del organismo (al menos dos palabras significativas). Cada adjudicación recibe una etiqueta:</p>
+<div class="tabla-wrap"><table class="manual-table"><thead><tr><th>Etiqueta</th><th>Significado</th></tr></thead><tbody><tr><td>📋 SOLO BORA</td><td>No se encontró el organismo en Comprar ni en TGN.</td></tr><tr><td>🔷 BORA + COMPRAR</td><td>El organismo tiene procesos abiertos en Comprar.</td></tr><tr><td>🔶 BORA + TGN (por organismo)</td><td>El organismo tiene pagos ejecutados en el año. No indica que este proveedor haya cobrado.</td></tr><tr><td>🔶 BORA + TGN (cobró)</td><td>Coincidencia por CUIT en TGN. Hoy no ocurre, por el límite de la API.</td></tr><tr><td>🚨 FLUJO COMPLETO</td><td>Hay CUIT y el organismo coincide en Comprar y en TGN. Es una coincidencia por organismo, no la trazabilidad de un pago.</td></tr></tbody></table></div>
+</section>
+<section class="doc-section" id="es-4"><h2 class="manual-h2">4. Actualización automática</h2>
+<p class="manual-p">El ciclo completo corre solo, de lunes a viernes, a las 08:00 y a las 12:00 (hora de Argentina). La corrida de las 12:00 es un reintento: si a la mañana ya se generó el reporte, no hace nada. Los fines de semana y los días sin edición del BORA no se genera reporte. Cada reporte queda guardado en dos archivos Excel por día y aparece en el sitio con la siguiente actualización del repositorio.</p>
+<p class="manual-p">No hace falta ejecutar nada a mano para el seguimiento diario.</p>
+</section>
+<section class="doc-section" id="es-5"><h2 class="manual-h2">5. Estructura de navegación</h2>
+<ul class="manual-list"><li><strong>Dashboard:</strong> resumen del último reporte.</li><li><strong>Licitaciones:</strong> flujo cruzado BORA → Comprar → TGN del último reporte, con detalle por adjudicación.</li><li><strong>Análisis en Vivo:</strong> ejecución manual del ciclo para un día.</li><li><strong>Documentación:</strong> marco teórico y descargas.</li><li><strong>Manual:</strong> este documento.</li><li><strong>Estado:</strong> salud del sistema y días faltantes (Sección 12).</li><li><strong>API:</strong> documentación interactiva (Swagger) en <code class="inline">/docs</code>.</li></ul>
+</section>
+<section class="doc-section" id="es-6"><h2 class="manual-h2">6. Dashboard</h2>
+<p class="manual-p">Muestra el último reporte disponible.</p>
+<ul class="manual-list"><li><strong>Tarjetas:</strong> Procesos Analizados, Intensidad Promedio (índice de riesgo promedio, 0 a 10), Alertas Alto Riesgo y Total Reportes guardados.</li><li><strong>Distribución por tipo:</strong> cantidad de adjudicaciones por tipo de proceso del BORA (licitación pública, contratación directa, etc.).</li><li><strong>Nivel de riesgo:</strong> cuántas adjudicaciones quedaron en Alto, Medio y Bajo.</li><li><strong>Detalle del Análisis Algorítmico:</strong> hasta 50 filas con organismo, tipo de proceso, índice y nivel.</li><li><strong>Último reporte:</strong> el archivo del día más reciente. Se descarga desde la página Estado o con <code class="inline">GET /api/reporte/AAAA-MM-DD/excel</code>.</li></ul>
+</section>
+<section class="doc-section" id="es-7"><h2 class="manual-h2">7. Análisis en Vivo</h2>
+<p class="manual-p">Permite ejecutar el ciclo para un día elegido.</p>
+<ol class="manual-list"><li>Elija un día en el calendario. Se muestran todos los días desde el 23/02/2026; los que ya tienen reporte aparecen marcados.</li><li>Pulse 🚀. El análisis corre en segundo plano y la pantalla consulta su avance; suele tardar entre uno y cinco minutos.</li><li>Al terminar se muestran los totales y enlaces al Dashboard y a Licitaciones.</li></ol>
+<div class="callout warn"><p><strong>Tenga en cuenta:</strong> solo puede correr un análisis por vez y como máximo uno cada 10 minutos. Para un día pasado se consulta únicamente el BORA, porque Comprar y TGN solo tienen el estado de hoy. Por eso, volver a ejecutar un día pasado que ya tiene reporte lo reemplazaría por uno con menos datos: requiere la clave de administración y, antes de reemplazarlo, el sistema guarda una copia de respaldo. Un día pasado que todavía no tiene reporte se puede completar sin clave.</p></div>
+</section>
+<section class="doc-section" id="es-8"><h2 class="manual-h2">8. Licitaciones — Flujo cruzado BORA → Comprar → TGN</h2>
+<p class="manual-p">Es la pantalla principal para el seguimiento diario.</p>
+<ul class="manual-list"><li><strong>Barra de estado:</strong> fecha de los datos y fuentes. El botón &quot;Actualizar datos en vivo&quot; ejecuta el ciclo del día de hoy (mismas reglas que la Sección 7).</li><li><strong>Etapas del flujo:</strong> BORA Licitaciones, Comprar, Adjudicadas y TGN. Al hacer clic en una etapa se filtra la tabla; &quot;Reset&quot; quita el filtro.</li><li><strong>Métricas:</strong> Total Publicaciones BORA, Con CUIT Extraído, Sin CUIT (pendientes de revisión manual) y Flujo Completo.</li><li><strong>Pestañas:</strong> BORA Licitaciones, Comprar.gob.ar y Adjudicaciones.</li><li><strong>Junto a cada CUIT:</strong> ✓ o ⚠️ según el dígito verificador (Sección 9) y 🌍 ALERTA INTERNACIONAL si MEACI encuentra coincidencias (Sección 10).</li><li><strong>🤖 Explicar con IA:</strong> redacta por qué una fila quedó con ese nivel de riesgo (Sección 11).</li></ul>
+</section>
+<section class="doc-section" id="es-9"><h2 class="manual-h2">9. Validación de formato de CUIT</h2>
+<p class="manual-p">El CUIT se extrae del texto del aviso, así que puede estar mal leído. El sistema verifica el dígito verificador con el algoritmo módulo 11 de AFIP (hoy ARCA).</p>
+<ul class="manual-list"><li>✓ <strong>Confirma</strong> que el número tiene 11 dígitos y un dígito verificador correcto.</li><li>⚠️ <strong>No consulta</strong> ningún padrón: no confirma la inscripción real, la razón social ni el estado del contribuyente.</li></ul>
+<pre class="codeblock">GET /api/cuit/validar?cuit=30-12345678-1
+GET /api/cuit/validar-lote?cuits=30-12345678-1,20-12345678-6   (hasta 200)</pre>
+</section>
+<section class="doc-section" id="es-10"><h2 class="manual-h2">10. Cruce de sanciones internacionales (MEACI)</h2>
+<p class="manual-p">MEACI es un servicio independiente que busca el CUIT del proveedor en bases de sanciones internacionales. Si hay coincidencia, la fila muestra 🌍 ALERTA INTERNACIONAL. Si MEACI no responde, la pantalla se carga igual, sin esa señal.</p>
+<pre class="codeblock">GET /api/cruce-cuit?cuit=30-68728814-5
+GET /api/cruce-cuits-bulk?cuits=cuit1,cuit2,cuit3   (hasta 50)</pre>
+</section>
+<section class="doc-section" id="es-11"><h2 class="manual-h2">11. Segunda opinión con IA</h2>
+<p class="manual-p">Cuando está configurada, la IA (Claude, de Anthropic) ofrece dos funciones:</p>
+<ul class="manual-list"><li><strong>Explicar riesgo:</strong> redacta en lenguaje simple por qué una adjudicación quedó en su nivel, usando solo los indicadores que ya calculó la matriz.</li><li><strong>Clasificar aviso:</strong> propone uno de los siete escenarios teóricos para un texto, con su razonamiento.</li></ul>
+<p class="manual-p">Cada visitante puede hacer 3 consultas por día, y hay un tope diario para todo el sitio. Las consultas que fallan no se descuentan. La IA es orientativa: <strong>no cambia el índice ni el nivel de riesgo</strong>.</p>
+</section>
+<section class="doc-section" id="es-12"><h2 class="manual-h2">12. Estado del sistema</h2>
+<p class="manual-p">La página <code class="inline">/estado</code> muestra la hora de Argentina, el último reporte (con enlace de descarga), cuántas filas trajo cada fuente, los días hábiles de los últimos 30 que no tienen reporte, si la base de datos y la IA están disponibles, y si la protección de reportes está activa.</p>
+</section>
+<section class="doc-section" id="es-13"><h2 class="manual-h2">13. Cómo interpretar los resultados</h2>
+<ul class="manual-list"><li>El índice es un <strong>puntaje de indicadores</strong>, no una probabilidad ni una prueba.</li><li>Un nivel Alto o Medio indica que conviene revisar el aviso original; no implica irregularidad.</li><li>&quot;Sin CUIT&quot; suele indicar un aviso en formato PDF o redactado de forma poco habitual: revise el aviso en el BORA.</li><li>Las etiquetas de TGN y &quot;Flujo Completo&quot; son coincidencias por organismo, no pagos confirmados a un proveedor.</li><li>Los reportes anteriores a octubre de 2026 se calcularon con una versión previa de la matriz, que sumaba 1,36 puntos a todas las filas. Para comparar períodos, use los datos recalculados (ver MEJORAS.md).</li></ul>
+</section>
+<section class="doc-section" id="es-14"><h2 class="manual-h2">14. API REST</h2>
+<p class="manual-p">Documentación interactiva en <code class="inline">/docs</code>.</p>
+<div class="tabla-wrap"><table class="manual-table"><thead><tr><th>Endpoint</th><th>Descripción</th></tr></thead><tbody><tr><td><code class="inline">GET /api/status</code></td><td>Estado general</td></tr><tr><td><code class="inline">GET /api/estado-sistema</code></td><td>Estado detallado (Sección 12)</td></tr><tr><td><code class="inline">GET /api/reportes</code></td><td>Lista de reportes guardados</td></tr><tr><td><code class="inline">GET /api/dias-disponibles</code></td><td>Días con reporte</td></tr><tr><td><code class="inline">GET /api/licitaciones/datos?fecha=AAAA-MM-DD</code></td><td>Datos de un día (por defecto, el último)</td></tr><tr><td><code class="inline">GET /api/reporte/AAAA-MM-DD/excel</code></td><td>Descarga el Excel del día (<code class="inline">?tipo=flujo</code> para el de flujo)</td></tr><tr><td><code class="inline">POST /api/licitaciones/ejecutar?fecha=AAAA-MM-DD</code></td><td>Inicia el ciclo para un día</td></tr><tr><td><code class="inline">GET /api/licitaciones/estado</code></td><td>Avance del ciclo en curso</td></tr><tr><td><code class="inline">POST /api/analisis</code></td><td>Clasificación por escenarios teóricos (requiere clave)</td></tr><tr><td><code class="inline">GET /api/marco-teorico</code></td><td>Los siete escenarios</td></tr><tr><td><code class="inline">GET /api/cuit/validar</code> · <code class="inline">GET /api/cuit/validar-lote</code></td><td>Validación de formato de CUIT</td></tr><tr><td><code class="inline">GET /api/cruce-cuit</code> · <code class="inline">GET /api/cruce-cuits-bulk</code></td><td>Cruce con MEACI</td></tr><tr><td><code class="inline">GET /api/ia/status</code> · <code class="inline">GET /api/ia/usos</code></td><td>Disponibilidad de la IA y consultas restantes</td></tr><tr><td><code class="inline">POST /api/ia/explicar-riesgo</code> · <code class="inline">POST /api/ia/clasificar</code></td><td>Segunda opinión con IA</td></tr><tr><td><code class="inline">GET /health</code></td><td>Healthcheck</td></tr></tbody></table></div>
+</section>
+<section class="doc-section" id="es-15"><h2 class="manual-h2">15. Flujo de trabajo recomendado</h2>
+<ol class="manual-list"><li>Abra <strong>Licitaciones</strong>: el reporte del día se genera solo a las 08:00.</li><li>Revise primero las filas en Alto y Medio, y las de &quot;Sin CUIT&quot;.</li><li>Verifique el ícono ✓/⚠️ antes de dar por bueno un CUIT.</li><li>Preste especial atención a cualquier 🌍 ALERTA INTERNACIONAL.</li><li>Abra el aviso original del BORA (enlace en cada fila) antes de sacar conclusiones.</li><li>Si falta un día, mírelo en <strong>Estado</strong> y complételo desde <strong>Análisis en Vivo</strong>.</li></ol>
+</section>
+<section class="doc-section" id="es-16"><h2 class="manual-h2">16. Descargas</h2>
+<ul class="manual-list"><li>Manual en español y en inglés (.docx), desde esta página.</li><li>Artículo del Dr. Monteverde (.docx) e instructivo del dashboard (.docx), desde Documentación.</li><li>Excel de cada día, desde Estado o con <code class="inline">GET /api/reporte/AAAA-MM-DD/excel</code>.</li></ul>
+</section>
+<section class="doc-section" id="es-17"><h2 class="manual-h2">17. Aviso</h2>
+<div class="callout legal"><p>Esta herramienta es de carácter experimental y académico. Los datos provienen de fuentes públicas oficiales del Estado argentino. Los resultados son indicadores algorítmicos de riesgo: no implican juicio de valor, acusación ni determinación de responsabilidad sobre ninguna empresa, organismo o persona. El objetivo es promover la transparencia y el debate informado sobre el gasto público.</p></div>
+<p class="manual-p">Contacto: vhmonte@retina.ar / viny01958@gmail.com · Licencia MIT</p>
+</section>
+</div>
+<div id="lang-en" class="lang-content" lang="en">
+<div class="manual-portada"><p>Public Contracts and Tenders Monitor. Based on the Theory of Corrupt Phenomena by Vicente Humberto Monteverde, PhD.</p><p>Manual version: October 2026 · gobbocomprartgn-production.up.railway.app</p></div>
+<div class="manual-toc"><a href="#en-1">1. What is Monitor XAI?</a><a href="#en-2">2. What it measures</a><a href="#en-3">3. Data sources and their limits</a><a href="#en-4">4. Automatic updates</a><a href="#en-5">5. Navigation</a><a href="#en-6">6. Dashboard</a><a href="#en-7">7. Live Analysis</a><a href="#en-8">8. Tenders</a><a href="#en-9">9. CUIT format validation</a><a href="#en-10">10. International sanctions check (MEACI)</a><a href="#en-11">11. AI second opinion</a><a href="#en-12">12. System status</a><a href="#en-13">13. How to interpret the results</a><a href="#en-14">14. REST API</a><a href="#en-15">15. Recommended workflow</a><a href="#en-16">16. Downloads</a><a href="#en-17">17. Disclaimer</a></div>
+<section class="doc-section" id="en-1"><h2 class="manual-h2">1. What is Monitor XAI?</h2>
+<p class="manual-p">Monitor XAI (eXplainable Artificial Intelligence) is a web platform for the automated auditing of Argentina&#x27;s national government procurement. Every business day it reads the notices in the Official Gazette (BORA), cross-references them with Comprar.gob.ar and the National Treasury (TGN), and applies a matrix of risk indicators. Every result can be explained: the system shows which indicator was triggered and why.</p>
+<div class="callout info"><p><strong>Important:</strong> the system does NOT detect criminal offenses, is not a whistleblowing channel, and does not assess the conduct of individuals. It analyzes discretionary government decisions and flags patterns that deserve a closer look.</p></div>
+</section>
+<section class="doc-section" id="en-2"><h2 class="manual-h2">2. What it measures: two matrices</h2>
+<p class="manual-p">The system uses two different matrices. It is important not to confuse them.</p>
+<h3 class="sec-h3">2.1 Tender Risk Matrix (what you see in Tenders and on the Dashboard)</h3>
+<p class="manual-p">It is applied to every contract award published in the BORA. It adds up the weights of the indicators that are triggered:</p>
+<div class="tabla-wrap"><table class="manual-table"><thead><tr><th>Indicator</th><th>Weight</th><th>When it is triggered</th></tr></thead><tbody><tr><td>Direct Award</td><td>3.0</td><td>The procedure is a direct award, an exception-based award or an abbreviated price comparison.</td></tr><tr><td>Single Vendor</td><td>2.5</td><td>The same CUIT (tax ID) appears in two or more awards on the same day.</td></tr><tr><td>Threshold Amount</td><td>2.5</td><td>The amount is up to 10% below a threshold that would require a more competitive procedure (1,000 or 5,000 modules, Decree 1030/2016, art. 27). This suggests contract splitting.</td></tr><tr><td>Multi-Agency Vendor</td><td>1.5</td><td>The same CUIT is paid by several agencies in TGN. It cannot be triggered today: the TGN API does not report the payee&#x27;s CUIT.</td></tr></tbody></table></div>
+<p class="manual-p">The <strong>risk index (0 to 10)</strong> is the sum of the weights divided by 9.5 and multiplied by 10. Since the last indicator cannot be triggered, the highest possible value today is 8.42.</p>
+<div class="tabla-wrap"><table class="manual-table"><thead><tr><th>Level</th><th>Index</th><th>Note</th></tr></thead><tbody><tr><td>High</td><td>7 or more</td><td>In practice, it requires Direct Award, Single Vendor and Threshold Amount to be triggered together.</td></tr><tr><td>Medium</td><td>4 to 6.99</td><td>A Direct Award is always at least Medium, even though its index is 3.16.</td></tr><tr><td>Low</td><td>below 4</td><td>Low does not mean &quot;no risk&quot;: it means no indicator in the matrix was triggered.</td></tr></tbody></table></div>
+<h3 class="sec-h3">2.2 Theoretical regressive-transfer scenarios</h3>
+<p class="manual-p">This is Dr. Monteverde&#x27;s conceptual framework: grand corruption is not limited to illegal acts, but includes legal decisions that shift income from groups with less bargaining power to groups with more. The system classifies texts into seven scenarios using keywords:</p>
+<div class="tabla-wrap"><table class="manual-table"><thead><tr><th>Scenario</th><th>Weight</th><th>Direction of the transfer</th></tr></thead><tbody><tr><td>Retirement / Pensions</td><td>10.0</td><td>Retirees → State</td></tr><tr><td>Tax Shifting</td><td>9.5</td><td>Taxpayers → State</td></tr><tr><td>Privatization / Concession</td><td>9.0</td><td>State → Private sector</td></tr><tr><td>Public Works / Contracts</td><td>8.5</td><td>State → Contractors</td></tr><tr><td>Public Utility Tariffs</td><td>7.5</td><td>Users → Utility companies</td></tr><tr><td>Regulated Consumer Prices</td><td>6.5</td><td>Consumers → Producers</td></tr><tr><td>Wages and Collective Bargaining</td><td>5.5</td><td>Employees → Employers</td></tr></tbody></table></div>
+<p class="manual-p">This classification is used by the <code class="inline">POST /api/analisis</code> endpoint and by the AI second opinion (Section 11). It plays no part in the tender risk index.</p>
+<p class="manual-p">Reference: Monteverde, V. H. (2020). Great corruption – theory of corrupt phenomena. Journal of Financial Crime, Vol. 28 No. 2, pp. 580-595. <a href="https://doi.org/10.1108/JFC-04-2020-0062" target="_blank">https://doi.org/10.1108/JFC-04-2020-0062</a></p>
+</section>
+<section class="doc-section" id="en-3"><h2 class="manual-h2">3. Data sources and their limits</h2>
+<ul class="manual-list"><li><strong>Official Gazette (BORA), Third Section:</strong> the day&#x27;s index of notices and the text of each award (sometimes a PDF). The vendor, CUIT and amount are extracted from that text; extraction can fail.</li><li><strong>Comprar.gob.ar:</strong> processes with an upcoming bid opening, as they stand at query time. There is no history, so past days are not queried.</li><li><strong>TGN (Presupuesto Abierto, the open budget portal):</strong> credit paid during the year by each agency, in millions of pesos. It does not report the payee&#x27;s CUIT, so it <strong>does not confirm that a specific vendor was paid</strong>. It has no daily history either.</li></ul>
+<p class="manual-p">Matches with Comprar and TGN are made by comparing words in the agency name (at least two significant words). Each award gets a label:</p>
+<div class="tabla-wrap"><table class="manual-table"><thead><tr><th>Label</th><th>Meaning</th></tr></thead><tbody><tr><td>📋 SOLO BORA (BORA only)</td><td>The agency was found neither in Comprar nor in TGN.</td></tr><tr><td>🔷 BORA + COMPRAR</td><td>The agency has open processes in Comprar.</td></tr><tr><td>🔶 BORA + TGN (por organismo)</td><td>The agency has payments executed this year. It does not mean this vendor was paid.</td></tr><tr><td>🔶 BORA + TGN (cobró)</td><td>A CUIT match in TGN. It does not happen today, because of the API limitation.</td></tr><tr><td>🚨 FLUJO COMPLETO (complete flow)</td><td>There is a CUIT and the agency matches in both Comprar and TGN. It is an agency-level match, not the tracing of a payment.</td></tr></tbody></table></div>
+</section>
+<section class="doc-section" id="en-4"><h2 class="manual-h2">4. Automatic updates</h2>
+<p class="manual-p">The full cycle runs on its own, Monday to Friday, at 08:00 and 12:00 (Argentina time). The 12:00 run is a retry: if the morning run already produced the report, it does nothing. No report is generated on weekends or on days without a BORA edition. Each report is saved as two Excel files per day and appears on the site with the next repository update.</p>
+<p class="manual-p">No manual action is needed for daily monitoring.</p>
+</section>
+<section class="doc-section" id="en-5"><h2 class="manual-h2">5. Navigation</h2>
+<ul class="manual-list"><li><strong>Dashboard:</strong> summary of the latest report.</li><li><strong>Licitaciones (Tenders):</strong> the BORA → Comprar → TGN cross-referenced flow for the latest report, with detail per award.</li><li><strong>Análisis en Vivo (Live Analysis):</strong> manually runs the cycle for a given day.</li><li><strong>Documentación (Documentation):</strong> theoretical framework and downloads.</li><li><strong>Manual:</strong> this document.</li><li><strong>Estado (Status):</strong> system health and missing days (Section 12).</li><li><strong>API:</strong> interactive documentation (Swagger) at <code class="inline">/docs</code>.</li></ul>
+</section>
+<section class="doc-section" id="en-6"><h2 class="manual-h2">6. Dashboard</h2>
+<p class="manual-p">Shows the latest available report.</p>
+<ul class="manual-list"><li><strong>Cards:</strong> Processes Analyzed, Average Intensity (average risk index, 0 to 10), High-Risk Alerts and Total Reports stored.</li><li><strong>Distribution by type:</strong> number of awards per BORA procedure type (public tender, direct award, etc.).</li><li><strong>Risk level:</strong> how many awards ended up as High, Medium and Low.</li><li><strong>Algorithmic Analysis Detail:</strong> up to 50 rows with agency, procedure type, index and level.</li><li><strong>Latest report:</strong> the file for the most recent day. Download it from the Status page or with <code class="inline">GET /api/reporte/YYYY-MM-DD/excel</code>.</li></ul>
+</section>
+<section class="doc-section" id="en-7"><h2 class="manual-h2">7. Live Analysis</h2>
+<p class="manual-p">Lets you run the cycle for a chosen day.</p>
+<ol class="manual-list"><li>Pick a day on the calendar. All days since 23 Feb 2026 are shown; those that already have a report are marked.</li><li>Click 🚀. The analysis runs in the background and the screen polls its progress; it usually takes one to five minutes.</li><li>When it finishes, the totals are shown along with links to the Dashboard and Tenders.</li></ol>
+<div class="callout warn"><p><strong>Keep in mind:</strong> only one analysis can run at a time, and at most one every 10 minutes. For a past day, only the BORA is queried, because Comprar and TGN only reflect today&#x27;s state. Re-running a past day that already has a report would therefore replace it with a report containing less data: it requires the admin key, and the system saves a backup copy before replacing it. A past day that has no report yet can be filled in without a key.</p></div>
+</section>
+<section class="doc-section" id="en-8"><h2 class="manual-h2">8. Tenders — BORA → Comprar → TGN cross-referenced flow</h2>
+<p class="manual-p">This is the main screen for daily monitoring.</p>
+<ul class="manual-list"><li><strong>Status bar:</strong> the date of the data and the sources. The &quot;Actualizar datos en vivo&quot; (refresh live data) button runs today&#x27;s cycle (same rules as Section 7).</li><li><strong>Flow stages:</strong> BORA Tenders, Comprar, Awarded and TGN. Clicking a stage filters the table; &quot;Reset&quot; clears the filter.</li><li><strong>Metrics:</strong> Total BORA Publications, With CUIT Extracted, Without CUIT (pending manual review) and Complete Flow.</li><li><strong>Tabs:</strong> BORA Tenders, Comprar.gob.ar and Awards.</li><li><strong>Next to each CUIT:</strong> ✓ or ⚠️ depending on the check digit (Section 9), and 🌍 INTERNATIONAL ALERT if MEACI finds a match (Section 10).</li><li><strong>🤖 Explain with AI:</strong> writes out why a row received its risk level (Section 11).</li></ul>
+</section>
+<section class="doc-section" id="en-9"><h2 class="manual-h2">9. CUIT format validation</h2>
+<p class="manual-p">The CUIT is extracted from the notice text, so it may be misread. The system checks the check digit using the modulus-11 algorithm of AFIP (now ARCA, the federal tax agency).</p>
+<ul class="manual-list"><li>✓ It <strong>does confirm</strong> that the number has 11 digits and a correct check digit.</li><li>⚠️ It <strong>does not query</strong> any registry: it does not confirm actual registration, the legal name or the taxpayer&#x27;s status.</li></ul>
+<pre class="codeblock">GET /api/cuit/validar?cuit=30-12345678-1
+GET /api/cuit/validar-lote?cuits=30-12345678-1,20-12345678-6   (up to 200)</pre>
+</section>
+<section class="doc-section" id="en-10"><h2 class="manual-h2">10. International sanctions check (MEACI)</h2>
+<p class="manual-p">MEACI is a separate service that looks up the vendor&#x27;s CUIT in international sanctions databases. If there is a match, the row shows 🌍 INTERNATIONAL ALERT. If MEACI does not respond, the screen still loads, without that signal.</p>
+<pre class="codeblock">GET /api/cruce-cuit?cuit=30-68728814-5
+GET /api/cruce-cuits-bulk?cuits=cuit1,cuit2,cuit3   (up to 50)</pre>
+</section>
+<section class="doc-section" id="en-11"><h2 class="manual-h2">11. AI second opinion</h2>
+<p class="manual-p">When configured, the AI (Anthropic&#x27;s Claude) offers two functions:</p>
+<ul class="manual-list"><li><strong>Explain risk:</strong> writes, in plain language, why an award received its level, using only the indicators the matrix already computed.</li><li><strong>Classify notice:</strong> suggests one of the seven theoretical scenarios for a text, with its reasoning.</li></ul>
+<p class="manual-p">Each visitor can make 3 requests per day, and there is a daily cap for the whole site. Failed requests are not counted. The AI is advisory only: <strong>it does not change the risk index or level</strong>.</p>
+</section>
+<section class="doc-section" id="en-12"><h2 class="manual-h2">12. System status</h2>
+<p class="manual-p">The <code class="inline">/estado</code> page shows the time in Argentina, the latest report (with a download link), how many rows each source returned, the business days in the last 30 that have no report, whether the database and the AI are available, and whether report protection is active.</p>
+</section>
+<section class="doc-section" id="en-13"><h2 class="manual-h2">13. How to interpret the results</h2>
+<ul class="manual-list"><li>The index is an <strong>indicator score</strong>, not a probability or proof.</li><li>A High or Medium level means the original notice is worth reviewing; it does not imply wrongdoing.</li><li>&quot;Without CUIT&quot; usually means a PDF notice or one with unusual wording: check the notice in the BORA.</li><li>The TGN labels and &quot;Complete Flow&quot; are agency-level matches, not confirmed payments to a vendor.</li><li>Reports from before October 2026 were computed with an earlier version of the matrix that added 1.36 points to every row. To compare periods, use the recalculated data (see MEJORAS.md).</li></ul>
+</section>
+<section class="doc-section" id="en-14"><h2 class="manual-h2">14. REST API</h2>
+<p class="manual-p">Interactive documentation at <code class="inline">/docs</code>.</p>
+<div class="tabla-wrap"><table class="manual-table"><thead><tr><th>Endpoint</th><th>Description</th></tr></thead><tbody><tr><td><code class="inline">GET /api/status</code></td><td>General status</td></tr><tr><td><code class="inline">GET /api/estado-sistema</code></td><td>Detailed status (Section 12)</td></tr><tr><td><code class="inline">GET /api/reportes</code></td><td>List of stored reports</td></tr><tr><td><code class="inline">GET /api/dias-disponibles</code></td><td>Days with a report</td></tr><tr><td><code class="inline">GET /api/licitaciones/datos?fecha=YYYY-MM-DD</code></td><td>Data for a day (latest by default)</td></tr><tr><td><code class="inline">GET /api/reporte/YYYY-MM-DD/excel</code></td><td>Downloads the day&#x27;s Excel file (<code class="inline">?tipo=flujo</code> for the flow file)</td></tr><tr><td><code class="inline">POST /api/licitaciones/ejecutar?fecha=YYYY-MM-DD</code></td><td>Starts the cycle for a day</td></tr><tr><td><code class="inline">GET /api/licitaciones/estado</code></td><td>Progress of the running cycle</td></tr><tr><td><code class="inline">POST /api/analisis</code></td><td>Classification into theoretical scenarios (requires the key)</td></tr><tr><td><code class="inline">GET /api/marco-teorico</code></td><td>The seven scenarios</td></tr><tr><td><code class="inline">GET /api/cuit/validar</code> · <code class="inline">GET /api/cuit/validar-lote</code></td><td>CUIT format validation</td></tr><tr><td><code class="inline">GET /api/cruce-cuit</code> · <code class="inline">GET /api/cruce-cuits-bulk</code></td><td>MEACI check</td></tr><tr><td><code class="inline">GET /api/ia/status</code> · <code class="inline">GET /api/ia/usos</code></td><td>AI availability and remaining requests</td></tr><tr><td><code class="inline">POST /api/ia/explicar-riesgo</code> · <code class="inline">POST /api/ia/clasificar</code></td><td>AI second opinion</td></tr><tr><td><code class="inline">GET /health</code></td><td>Health check</td></tr></tbody></table></div>
+</section>
+<section class="doc-section" id="en-15"><h2 class="manual-h2">15. Recommended workflow</h2>
+<ol class="manual-list"><li>Open <strong>Tenders</strong>: the day&#x27;s report is generated automatically at 08:00.</li><li>Review High and Medium rows first, along with &quot;Without CUIT&quot; rows.</li><li>Check the ✓/⚠️ icon before relying on a CUIT.</li><li>Pay special attention to any 🌍 INTERNATIONAL ALERT.</li><li>Open the original BORA notice (linked in each row) before drawing conclusions.</li><li>If a day is missing, check it under <strong>Status</strong> and fill it in from <strong>Live Analysis</strong>.</li></ol>
+</section>
+<section class="doc-section" id="en-16"><h2 class="manual-h2">16. Downloads</h2>
+<ul class="manual-list"><li>This manual in Spanish and English (.docx), from this page.</li><li>Dr. Monteverde&#x27;s article (.docx) and the dashboard guide (.docx), from Documentation.</li><li>Each day&#x27;s Excel file, from Status or with <code class="inline">GET /api/reporte/YYYY-MM-DD/excel</code>.</li></ul>
+</section>
+<section class="doc-section" id="en-17"><h2 class="manual-h2">17. Disclaimer</h2>
+<div class="callout legal"><p>This tool is experimental and academic in nature. The data comes from official public sources of the Argentine government. Results are algorithmic risk indicators: they do not imply a value judgment, an accusation or a finding of liability against any company, agency or person. The goal is to promote transparency and informed debate about public spending.</p></div>
+<p class="manual-p">Contact: vhmonte@retina.ar / viny01958@gmail.com · MIT License</p>
+</section>
+</div>
+{% endraw %}
+    </main>
+    <script>
+        function switchLang(lang) {
+            document.querySelectorAll('.lang-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+            document.querySelectorAll('.lang-content').forEach(c => c.classList.toggle('active', c.id === 'lang-' + lang));
+            document.documentElement.lang = lang;
+        }
+        // #en, #en-3, etc. abren la versión en inglés (y van a la sección)
+        if (location.hash.startsWith('#en')) {
+            switchLang('en');
+            // después de "load": si no, el navegador restaura la posición previa al recargar
+            window.addEventListener('load', () => {
+                const destino = document.getElementById(location.hash.slice(1));
+                if (destino) destino.scrollIntoView();
+            });
+        }
+    </script>
+</body>
+</html>

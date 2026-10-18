@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estado del sistema - Monitor XAI</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .estado-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:16px; margin:16px 0 24px; }
+        .estado-item { border:1px solid var(--border); border-radius:10px; padding:16px; background:rgba(255,255,255,0.02); }
+        .estado-item h3 { font-size:.8rem; color:var(--text-muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em; }
+        .estado-item .valor { font-size:1.15rem; color:var(--text-primary); font-family:var(--mono); word-break:break-word; }
+        .ok { color:#22c55e; } .mal { color:var(--accent-red); } .aviso { color:var(--accent-amber); }
+        table.hojas { width:100%; border-collapse:collapse; font-size:.85rem; }
+        table.hojas td { padding:6px 8px; border-bottom:1px solid var(--border); color:var(--text-secondary); }
+        table.hojas td:last-child { text-align:right; font-family:var(--mono); color:var(--text-primary); }
+        .chips { display:flex; flex-wrap:wrap; gap:6px; }
+        .chips span { font-family:var(--mono); font-size:.78rem; border:1px solid var(--border); border-radius:999px; padding:4px 10px; color:var(--text-secondary); }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="header-brand">
+                <h1>⚖️ Monitor XAI <span class="badge">v1.0</span></h1>
+                <p>Ph.D. Vicente Humberto Monteverde · Algoritmos contra la Corrupción</p>
+            </div>
+            <nav>
+                <a href="/">📊 Dashboard</a>
+                <a href="/licitaciones">🏛️ Licitaciones</a>
+                <a href="/analisis-vivo">🚀 Análisis en Vivo</a>
+                <a href="/documentacion">📖 Documentación</a>
+                <a href="/manual-v2">📘 Manual</a>
+                <a href="/estado" class="active">🩺 Estado</a>
+                <a href="/docs">🔧 API</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="doc-section">
+            <h2>🩺 Estado del sistema</h2>
+            <p style="color:var(--text-secondary);">Hora de Argentina: <strong>{{ e.hora_argentina }}</strong> · <a href="/api/estado-sistema" style="color:var(--accent-cyan)">ver en JSON</a></p>
+
+            <div class="estado-grid">
+                <div class="estado-item">
+                    <h3>Último reporte</h3>
+                    {% if e.ultimo_reporte %}
+                    <div class="valor">{{ e.ultimo_reporte.fecha }}</div>
+                    <p style="margin-top:8px;"><a href="{{ e.ultimo_reporte.descarga }}" style="color:var(--accent-cyan)">📥 Descargar Excel</a></p>
+                    {% else %}
+                    <div class="valor mal">Sin reportes</div>
+                    {% endif %}
+                </div>
+                <div class="estado-item">
+                    <h3>Reportes en disco</h3>
+                    <div class="valor">{{ e.reportes_en_disco }}</div>
+                </div>
+                <div class="estado-item">
+                    <h3>Base de datos</h3>
+                    <div class="valor {{ 'ok' if e.base_de_datos else 'mal' }}">{{ 'Conectada' if e.base_de_datos else 'No disponible' }}</div>
+                </div>
+                <div class="estado-item">
+                    <h3>IA</h3>
+                    <div class="valor {{ 'ok' if e.ia.disponible else 'aviso' }}">{{ 'Activa' if e.ia.disponible else 'No configurada' }}</div>
+                    {% if e.ia.modelo %}<p style="margin-top:6px; font-size:.8rem; color:var(--text-muted);">{{ e.ia.modelo }} · {{ e.ia.limite_por_dia }} consultas por día</p>{% endif %}
+                </div>
+                <div class="estado-item">
+                    <h3>Análisis en vivo</h3>
+                    {% if e.analisis_en_vivo.corriendo %}
+                    <div class="valor aviso">En curso ({{ e.analisis_en_vivo.fecha }})</div>
+                    {% elif e.analisis_en_vivo.error %}
+                    <div class="valor mal">Último intento con error</div>
+                    <p style="margin-top:6px; font-size:.8rem; color:var(--text-muted);">{{ e.analisis_en_vivo.error }}</p>
+                    {% elif e.analisis_en_vivo.fecha %}
+                    <div class="valor">Último: {{ e.analisis_en_vivo.fecha }}</div>
+                    {% else %}
+                    <div class="valor">Sin ejecuciones desde el último reinicio</div>
+                    {% endif %}
+                </div>
+                <div class="estado-item">
+                    <h3>Protección de reportes</h3>
+                    <div class="valor {{ 'ok' if e.proteccion_ejecuciones else 'mal' }}">{{ 'Activa' if e.proteccion_ejecuciones else 'Falta ADMIN_KEY' }}</div>
+                    <p style="margin-top:6px; font-size:.8rem; color:var(--text-muted);">{{ e.respaldos_guardados }} respaldo(s) guardado(s)</p>
+                </div>
+            </div>
+
+            {% if e.ultimo_reporte %}
+            <h3 class="sec-h3" style="margin:12px 0 8px;">Fuentes del último reporte (filas por hoja)</h3>
+            <table class="hojas">
+                {% for hoja, filas in e.ultimo_reporte.hojas.items() %}
+                <tr><td>{{ hoja }}</td><td>{{ filas }}</td></tr>
+                {% endfor %}
+            </table>
+            {% endif %}
+
+            <h3 class="sec-h3" style="margin:24px 0 8px;">Días hábiles sin reporte (últimos 30 días)</h3>
+            {% if e.dias_habiles_sin_reporte_30d %}
+            <div class="chips">{% for d in e.dias_habiles_sin_reporte_30d %}<span>{{ d }}</span>{% endfor %}</div>
+            <p style="margin-top:8px; font-size:.82rem; color:var(--text-muted);">Se pueden completar desde Análisis en Vivo: un día sin reporte no requiere clave.</p>
+            {% else %}
+            <p class="ok">Ninguno: todos los días hábiles tienen reporte.</p>
+            {% endif %}
+        </section>
+    </main>
+</body>
+</html>

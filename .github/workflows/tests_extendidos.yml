@@ -1,0 +1,36 @@
+name: Tests Extendidos
+
+# Complementa a test.yml (que no se modifica): corre TODOS los tests, incluidos
+# test_apis_oficiales.py y los de las extensiones, con las dependencias reales
+# de requirements.txt y la misma versión de Python que la imagen de Docker.
+# También verifica que el manual generado esté al día con docs/manual/*.md.
+
+on:
+  pull_request:
+    branches: [ desarrollo ]
+  push:
+    branches: [ desarrollo, mejoras-revision ]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements-dev.txt
+
+      - name: Correr todos los tests
+        run: pytest -v
+
+      - name: Verificar que el manual generado coincide con los .md
+        run: |
+          python tools/generar_manual.py
+          git diff --exit-code -- templates/manual_v2.html \
+            || (echo "templates/manual_v2.html no coincide con docs/manual/*.md: correr python tools/generar_manual.py" && exit 1)

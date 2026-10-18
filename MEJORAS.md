@@ -1,22 +1,25 @@
 # Mejoras de la revisión de octubre de 2026
 
-Todo lo de esta rama se **suma** al proyecto: no se modificó ningún archivo
-existente (`main.py`, `diario.py`, `analisis.py`, `db_reportes.py`, templates,
-workflows, manuales anteriores ni `data/`). Si no se activa nada, el sitio
-funciona exactamente igual que antes.
+Hubo dos tandas:
 
-## Cómo activarlo
+1. **Extensiones** (PR #11): solo archivos nuevos, sin tocar los existentes.
+2. **Correcciones** (rama `mejoras-navegacion-y-correcciones`): menú, `main.py`,
+   Documentación, README, Dockerfile, cron y dependencias. Detalle al final.
 
-Las extensiones viven en `app_extendida.py`, que importa la app de `main.py` y
-le agrega rutas y un middleware. Para usarlas en Railway, cambiar el comando de
-inicio del servicio (Settings → Deploy → Custom Start Command):
+## Cómo está activado
+
+El `Dockerfile` arranca `app_extendida:app` (la app de `main.py` más las
+extensiones), así que no hace falta un comando de inicio personalizado en
+Railway: si se configuró uno, se puede borrar. Hay que tener `ADMIN_KEY`
+definida en las variables del servicio.
+
+Si en Railway se usa un comando personalizado, tiene que pasar por `sh -c`
+para que `$PORT` se expanda (si no, uvicorn recibe el texto `$PORT` y el
+contenedor no arranca):
 
 ```
-uvicorn app_extendida:app --host 0.0.0.0 --port $PORT
+sh -c "uvicorn app_extendida:app --host 0.0.0.0 --port ${PORT:-8000}"
 ```
-
-y definir `ADMIN_KEY` si todavía no está. Para volver atrás, borrar el comando
-personalizado (vuelve a `main:app`, el del Dockerfile).
 
 Localmente:
 
@@ -57,18 +60,30 @@ Tests nuevos: `test_extensiones.py` (16) y `test_analisis_v2.py` (8).
 
 ## Avisos antes de activar
 
-1. **Dashboard y base de datos.** En cuanto `reportes_diarios` tenga filas (por `backfill_db.py` o por `sincronizar-db`), `main.py` deja de mostrar el último Excel y pasa a mostrar los totales **acumulados** de la base (por ejemplo, Procesos Analizados = 770 en vez de 2). Es el comportamiento que ya tiene `main.py`; conviene decidirlo antes de cargar el histórico.
+1. **Dashboard y base de datos.** Desde la segunda tanda, el dashboard muestra siempre el último reporte en disco, así que cargar el histórico en la base (`backfill_db.py` o `sincronizar-db`) no cambia lo que se ve. Antes de esa corrección, la base tenía prioridad y el dashboard pasaba a mostrar totales acumulados.
 2. **Sin `ADMIN_KEY` nadie puede reescribir un día pasado** con las extensiones activas. Un día sin reporte sí se puede completar.
 3. **Reporte del 16/10/2026 en producción.** El archivo del repositorio está bien (12 procesos de Comprar, 540 organismos de TGN); el del contenedor quedó reemplazado. Se recupera solo con el próximo despliegue, que vuelve a copiar `data/` desde git.
 4. **Respaldos en Railway.** `RESPALDOS_DIR` (por defecto `/app/respaldos`) vive en el disco del contenedor y se pierde al redesplegar. Para conservarlos, montar un volumen y apuntar `RESPALDOS_DIR` ahí.
 
-## Pendiente (requiere modificar archivos existentes, no se hizo)
+## Segunda tanda: correcciones en archivos existentes
 
-- `ejecucion_diaria.yml`: instalar con `pip install -r requirements.txt` (hoy falta `holidays`, así que el chequeo de feriados queda apagado) y, si se quiere alimentar la base, pasar `DATABASE_URL` como secret.
-- `main.py`: usar la hora de Argentina en `es_hoy` y `/api/dias-disponibles`; vaciar `_df_cache` cuando aparece un reporte nuevo; persistir con un pool propio dentro del hilo de fondo.
-- `requirements.txt`: fijar versiones (`pip-compile requirements.in`) y agregar `nest_asyncio`, que usa `db_reportes.py`.
-- `templates/documentacion.html`: los rangos de riesgo que muestra (Alto 8-10, Medio 5-7) no coinciden con el código (Alto ≥ 7, Medio ≥ 4).
-- Navegación: en `/analisis-vivo` y `/licitaciones` aparecen dos enlaces activos, y el dashboard no tiene "Licitaciones" en la barra.
-- `README.md`: pesos viejos, login con `?key=` y `tests.yml` en lugar de `test.yml`.
-- IA: el modelo por defecto es `claude-sonnet-4-5`; se puede actualizar sin tocar código con la variable `ANTHROPIC_MODEL=claude-sonnet-5-5`.
-- Reemplazar `/manual` por `/manual-v2` (o enlazarlo desde la barra) cuando se apruebe el texto nuevo.
+| Qué | Dónde |
+|---|---|
+| Menú igual en todas las páginas: se agregó **Estado**, el Dashboard ahora tiene **Licitaciones**, y cada página marca un solo enlace activo | `templates/*.html` |
+| `/manual` muestra el manual corregido; el anterior queda en `/manual-anterior`. Las descargas `.docx` del manual entregan la versión corregida | `main.py` |
+| "Hoy" es el día de Argentina (antes, a partir de las 21:00 ya era el día siguiente): análisis en vivo, consulta de Comprar/TGN y calendario de días | `main.py` |
+| El resultado de `POST /api/analisis` ya no queda fijo en el dashboard: se descarta cuando aparece un reporte más nuevo | `main.py` |
+| El dashboard muestra siempre el último reporte (la base solo se usa si no hay ninguno), y la tabla ya no muestra "nan" | `main.py` |
+| El análisis en vivo guarda en PostgreSQL con un pool propio: antes reusaba el de la app desde otro event loop y fallaba | `main.py` |
+| Rangos de riesgo de Documentación alineados con el código (Alto ≥ 7, Medio ≥ 4) | `templates/documentacion.html` |
+| El contenedor arranca con las extensiones | `Dockerfile`, `docker-compose.yml` |
+| El cron instala `requirements.txt` completo (vuelve a funcionar el chequeo de feriados) y usa Python 3.13 | `.github/workflows/ejecucion_diaria.yml` |
+| `nest_asyncio` agregado (lo usa `db_reportes.py`) | `requirements.txt`, `requirements.in` |
+| Modelo de IA por defecto: `claude-sonnet-5-5` (se puede cambiar con `ANTHROPIC_MODEL`) | `agentic_ai.py` |
+| README al día: pesos, matriz licitatoria, login de admin, estructura, endpoints | `Readme.md` |
+
+## Pendiente
+
+- Fijar versiones exactas de dependencias (`pip-compile requirements.in`), para que un deploy no cambie de versión sin aviso.
+- Si se quiere que el cron también cargue la base: agregar el secret `DATABASE_URL` en GitHub y pasarlo al paso "Ejecutar Ciclo Integrado".
+- Decidir si se adoptan las matrices de `analisis_v2.py` y si se recalibran los umbrales (decisión metodológica del autor).

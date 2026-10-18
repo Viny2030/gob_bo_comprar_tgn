@@ -17,6 +17,8 @@ import pandas as pd
 import httpx
 import asyncpg
 
+from extensiones.zona_horaria import hoy_ar_str  # el servidor corre en UTC: "hoy" es el de Argentina
+
 # ── PostgreSQL ───────────────────────────────────────────────────────────────
 DATABASE_URL = os.getenv("DATABASE_URL", "")
 ADMIN_KEY    = os.getenv("ADMIN_KEY", "")
@@ -66,6 +68,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 _df_cache = None
+_df_cache_archivo = None  # reporte del que salió el cache: si aparece uno más nuevo, se descarta
 
 # ── MEACI URL (Monitor Internacional) ───────────────────────────────────────
 # Antes apuntaba a mapatransparencia-production y a /api/cruce-cuit, que no existen
@@ -162,9 +165,12 @@ def leer_hoja(ruta, hojas_preferidas):
 
 def cargar_ultimo_reporte():
     global _df_cache
-    if _df_cache is not None and not _df_cache.empty:
-        return _df_cache
     archivos = buscar_todos_los_xlsx(DATA_DIR)
+    ultimo = archivos[0] if archivos else None
+    # El cache (de POST /api/analisis) vale solo mientras no aparezca un reporte más nuevo;
+    # antes quedaba fijo en el dashboard hasta el próximo reinicio.
+    if _df_cache is not None and not _df_cache.empty and _df_cache_archivo == ultimo:
+        return _df_cache
     if not archivos:
         return pd.DataFrame()
     try:
@@ -178,8 +184,10 @@ def cargar_ultimo_reporte():
         return pd.DataFrame()
 
 def set_cache(df):
-    global _df_cache
+    global _df_cache, _df_cache_archivo
     _df_cache = df
+    archivos = buscar_todos_los_xlsx(DATA_DIR)
+    _df_cache_archivo = archivos[0] if archivos else None
 
 def guardar_excels_con_fecha(df_cruce, df_adj, df_licit, df_comprar, df_tgn, fecha_str):
     from analisis import analizar_adjudicaciones
@@ -224,8 +232,11 @@ async def dashboard(request: Request):
     archivos = buscar_todos_los_xlsx(DATA_DIR)
     df = cargar_ultimo_reporte()
 
-    # ── Leer de PostgreSQL si está disponible ────────────────────────────────
-    if db_pool:
+    # ── Leer de PostgreSQL solo si no hay reportes en disco ──────────────────
+    # El dashboard muestra el ÚLTIMO reporte (así lo documenta el manual). La base
+    # guarda totales acumulados de todos los días cargados: si se usara siempre,
+    # el dashboard cambiaría de significado apenas se cargara un día en ella.
+    if db_pool and not archivos:
         try:
             from db_reportes import get_stats_globales, get_flujo_reciente, get_ultimo_reporte
             stats   = await get_stats_globales(db_pool)
@@ -317,13 +328,14 @@ async def dashboard(request: Request):
                     "indice_fenomeno_corruptivo", "nivel_riesgo_teorico"]
             tabla = df[[c for c in cols if c in df.columns]].head(50).fillna("n/a").to_dict(orient="records")
         else:
-            for _, row in df.head(50).iterrows():
+            # fillna(""): las celdas vacías del Excel llegaban como NaN y la tabla mostraba "nan"
+            for _, row in df.head(50).fillna("").iterrows():
                 tabla.append({
-                    "nro_proceso":                row.get("nro_proceso_comprar", row.get("aviso_id", "n/a")),
-                    "detalle":                    row.get("organismo_contratante", row.get("beneficiario_tgn", "n/a")),
-                    "tipo_decision":              row.get("tipo_proceso_bora", row.get("alerta", "n/a")),
-                    "indice_fenomeno_corruptivo":  row.get("indice_riesgo_licit", row.get("score_riesgo_licit", 0)),
-                    "nivel_riesgo_teorico":        row.get("nivel_riesgo_licit", "Bajo"),
+                    "nro_proceso":                row.get("nro_proceso_comprar") or row.get("aviso_id") or "n/a",
+                    "detalle":                    row.get("organismo_contratante") or row.get("beneficiario_tgn") or "n/a",
+                    "tipo_decision":              row.get("tipo_proceso_bora") or row.get("alerta") or "n/a",
+                    "indice_fenomeno_corruptivo":  row.get("indice_riesgo_licit") or row.get("score_riesgo_licit") or 0,
+                    "nivel_riesgo_teorico":        row.get("nivel_riesgo_licit") or "Bajo",
                 })
 
     ga_id = os.getenv("GA_MEASUREMENT_ID", "")
@@ -361,7 +373,12 @@ async def licitaciones(request: Request):
 
 @app.get("/manual", response_class=HTMLResponse)
 async def manual(request: Request):
-    """Manual de usuario en línea, con pestañas Español/English (ver también /api/descargar-manual-es|en)."""
+    """Manual de usuario en línea, con pestañas Español/English (ver también /api/descargar-manual-es|en).
+    Se genera con tools/generar_manual.py desde docs/manual/*.md; el anterior queda en /manual-anterior."""
+    return templates.TemplateResponse(request, "manual_v2.html")
+
+@app.get("/manual-anterior", response_class=HTMLResponse)
+async def manual_anterior(request: Request):
     return templates.TemplateResponse(request, "manual.html")
 
 # ── API Status ───────────────────────────────────────────────────────────────
@@ -398,7 +415,7 @@ def listar_reportes():
 @app.get("/api/dias-disponibles")
 def dias_disponibles():
     inicio = datetime(2026, 2, 23).date()
-    hoy    = datetime.now().date()
+    hoy    = datetime.strptime(hoy_ar_str(), "%Y-%m-%d").date()
     dias_todos = []
     dia = inicio
     while dia <= hoy:
@@ -517,7 +534,7 @@ def descargar_instructivo():
 @app.get("/api/descargar-manual-es")
 def descargar_manual_es():
     from fastapi.responses import FileResponse
-    ruta = "Monitor_XAI_Manual_ES.docx"
+    ruta = "Monitor_XAI_Manual_ES_v2.docx"
     if not os.path.exists(ruta):
         raise HTTPException(status_code=404, detail="Manual en español no disponible")
     return FileResponse(path=ruta, filename="Monitor_XAI_Manual_ES.docx",
@@ -526,7 +543,7 @@ def descargar_manual_es():
 @app.get("/api/descargar-manual-en")
 def descargar_manual_en():
     from fastapi.responses import FileResponse
-    ruta = "Monitor_XAI_Manual_EN.docx"
+    ruta = "Monitor_XAI_Manual_EN_v2.docx"
     if not os.path.exists(ruta):
         raise HTTPException(status_code=404, detail="Manual not available")
     return FileResponse(path=ruta, filename="Monitor_XAI_Manual_EN.docx",
@@ -558,7 +575,7 @@ def _ejecutar_pipeline_licitaciones(fecha_str: str) -> dict:
         df_adj     = extraer_bora_adjudicaciones(df_bora)
         df_licit   = (df_bora[df_bora["es_adjudicacion"] == False].copy().reset_index(drop=True)
                       if not df_bora.empty else pd.DataFrame())
-        es_hoy     = fecha_str == datetime.now().strftime("%Y-%m-%d")
+        es_hoy     = fecha_str == hoy_ar_str()
         df_comprar = extraer_comprar() if es_hoy else pd.DataFrame()
         df_tgn     = extraer_pagos_tgn() if es_hoy else pd.DataFrame()
         df_cruce   = cruzar_fuentes(df_adj, df_comprar, df_tgn)
@@ -571,7 +588,7 @@ def _ejecutar_pipeline_licitaciones(fecha_str: str) -> dict:
                           if not df_cruce.empty else 0)
         riesgo_alto  = int((df_cruce["nivel_riesgo_licit"] == "Alto").sum())  if "nivel_riesgo_licit" in df_cruce.columns else 0
         riesgo_medio = int((df_cruce["nivel_riesgo_licit"] == "Medio").sum()) if "nivel_riesgo_licit" in df_cruce.columns else 0
-        # ── Persistir en PostgreSQL usando el pool existente de la app ──────
+        # ── Persistir en PostgreSQL (si la app tiene base configurada) ────────
         if db_pool:
             try:
                 import asyncio as _asyncio
@@ -597,15 +614,22 @@ def _ejecutar_pipeline_licitaciones(fecha_str: str) -> dict:
                                       if not df_cruce.empty and "nivel_riesgo_licit" in df_cruce.columns else 0,
                     "indice_promedio": indice_prom,
                 }
+                # Este código corre en un hilo con su propio event loop (asyncio.run):
+                # asyncpg no admite usar ahí el db_pool de la app, que pertenece al
+                # loop de uvicorn. Por eso se abre un pool propio y se cierra al final.
                 async def _persistir():
-                    await _init_tables(db_pool)
-                    await _guardar_reporte(db_pool, fecha_str, resumen_db)
-                    if not df_cruce.empty:
-                        await _guardar_flujo(db_pool, fecha_str, df_cruce)
-                    if not df_bora.empty:
-                        await _guardar_bora(db_pool, fecha_str, df_bora)
-                    if not df_comprar.empty:
-                        await _guardar_comprar(db_pool, fecha_str, df_comprar)
+                    pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=2)
+                    try:
+                        await _init_tables(pool)
+                        await _guardar_reporte(pool, fecha_str, resumen_db)
+                        if not df_cruce.empty:
+                            await _guardar_flujo(pool, fecha_str, df_cruce)
+                        if not df_bora.empty:
+                            await _guardar_bora(pool, fecha_str, df_bora)
+                        if not df_comprar.empty:
+                            await _guardar_comprar(pool, fecha_str, df_comprar)
+                    finally:
+                        await pool.close()
                 _asyncio.run(_persistir())
                 logger.info(f"✅ Datos {fecha_str} persistidos en PostgreSQL")
             except Exception as _e:
@@ -630,7 +654,7 @@ def ejecutar_licitaciones(fecha: str = None):
         except ValueError:
             raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
     else:
-        fecha_str = datetime.now().strftime("%Y-%m-%d")
+        fecha_str = hoy_ar_str()
 
     with _analisis_lock:
         ultimo = _analisis_job.get("terminado_en")

@@ -34,3 +34,6 @@ holidays>=0.46               # feriados nacionales Argentina (y otros países)
 # Opcional: si no se configura ANTHROPIC_API_KEY, agentic_ai.py degrada
 # devolviendo un aviso claro en vez de romper el resto de la app.
 anthropic>=0.40.0
+
+# ── Usado por db_reportes.guardar_en_db cuando ya hay un event loop corriendo ──
+nest_asyncio>=1.6.0

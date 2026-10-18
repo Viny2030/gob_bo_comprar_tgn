@@ -34,6 +34,7 @@ holidays>=0.46               # feriados nacionales Argentina (y otros países)
 
 # ── Agentic AI (clasificación/explicación asistida sobre avisos BORA) ────────
 anthropic>=0.40.0
+nest_asyncio>=1.6.0
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 pytest>=8.0.0

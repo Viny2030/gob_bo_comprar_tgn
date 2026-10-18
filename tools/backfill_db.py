@@ -9,9 +9,8 @@ Uso:
     DATABASE_URL=postgres://... python tools/backfill_db.py
     python tools/backfill_db.py --desde 2026-09-01 --hasta 2026-09-30
 
-Ojo: cuando reportes_diarios tenga datos, el dashboard (main.py) deja de leer
-el último Excel y pasa a mostrar los totales ACUMULADOS de la base
-(SUM de todos los días). Ver MEJORAS.md.
+El dashboard muestra siempre el último reporte en disco: cargar la base no
+cambia lo que se ve. La base sirve para consultas históricas.
 """
 import argparse
 import asyncio

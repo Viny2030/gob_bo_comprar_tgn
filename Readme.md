@@ -61,12 +61,23 @@ La **Gran Corrupción** no se limita a actos ilegales. La corrupción moderna se
 | Escenario | Peso XAI | Dirección de Transferencia |
 |---|---|---|
 | Privatización / Concesión | 9.0 | Estado → Privados |
-| Obra Pública / Contratos | 8.0 | Estado → Empresas Contratistas |
-| Tarifas Servicios Públicos | 7.0 | Usuarios → Concesionarias |
-| Precios Regulados | 6.0 | Consumidores → Productores |
-| Salarios y Paritarias | 5.0 | Asalariados → Empleadores |
+| Obra Pública / Contratos | 8.5 | Estado → Empresas Contratistas |
+| Tarifas Servicios Públicos | 7.5 | Usuarios → Concesionarias |
+| Precios Regulados | 6.5 | Consumidores → Productores |
+| Salarios y Paritarias | 5.5 | Asalariados → Empleadores |
 | **Jubilaciones / Pensiones** | **10.0** | Jubilados → Estado |
-| Traslado de Impuestos | 9.0 | Contribuyentes → Estado |
+| Traslado de Impuestos | 9.5 | Contribuyentes → Estado |
+
+### Matriz de Riesgo Licitatorio (la que se aplica a cada adjudicación)
+
+| Indicador | Peso |
+|---|---|
+| Contratación Directa | 3.0 |
+| Proveedor Único (mismo CUIT, mismo día) | 2.5 |
+| Monto Límite (hasta 10% bajo un tope de módulos) | 2.5 |
+| Proveedor Multi-Organismo (requiere CUIT en TGN; hoy no se activa) | 1.5 |
+
+Índice = suma / 9,5 × 10. Alto ≥ 7, Medio ≥ 4, Bajo < 4; una Contratación Directa queda como mínimo en Medio. Detalle en el manual (`/manual`) y en `MEJORAS.md`.
 
 **Referencia:** Monteverde, V. H. (2020). *Great corruption – theory of corrupt phenomena*. Journal of Financial Crime, Vol. 28 No. 2, pp. 580-595.
 
@@ -110,7 +121,7 @@ La **Gran Corrupción** no se limita a actos ilegales. La corrupción moderna se
 
 | Componente | Tecnología |
 |---|---|
-| Backend | FastAPI + Python 3.11 |
+| Backend | FastAPI + Python 3.13 |
 | Base de datos | PostgreSQL (Railway) |
 | Frontend | HTML + Chart.js + Vanilla JS |
 | Analytics | Google Analytics 4 + Measurement Protocol |
@@ -127,7 +138,10 @@ La **Gran Corrupción** no se limita a actos ilegales. La corrupción moderna se
 gob_bo_comprar_tgn/
 │
 ├── main.py                    # FastAPI app principal
+├── app_extendida.py           # main.py + extensiones (punto de entrada del Dockerfile)
+├── extensiones/               # Protección de reportes, /estado, descargas, carga en la base
 ├── analisis.py                # Motor de análisis XAI
+├── analisis_v2.py             # Matrices revisadas, para comparar (no se usan en producción)
 ├── diario.py                  # Scraping y ciclo diario
 ├── requirements.txt           # Dependencias Python
 ├── Dockerfile                 # Contenedor Docker
@@ -137,6 +151,8 @@ gob_bo_comprar_tgn/
 │   ├── analisis.html          # Análisis en vivo
 │   ├── documentacion.html     # Documentación
 │   ├── licitaciones.html      # Licitaciones
+│   ├── estado.html            # Estado del sistema
+│   ├── manual_v2.html         # Manual ES/EN (generado desde docs/manual/*.md)
 │   └── admin.html             # Panel de administración
 │
 ├── static/
@@ -147,9 +163,12 @@ gob_bo_comprar_tgn/
 │       ├── reporte_2026-03-17.xlsx
 │       └── flujo_licitaciones_2026-03-17.xlsx
 │
-├── test_auditoria.py          # Tests automáticos (pytest)
+├── tools/                     # backfill_db, recalcular_historico, generar_manual
+├── docs/manual/               # Fuente del manual (manual_es.md, manual_en.md)
+├── test_*.py                  # Tests automáticos (pytest)
 └── .github/workflows/
-    ├── tests.yml              # CI: tests en cada PR
+    ├── test.yml               # CI: tests en cada PR
+    ├── tests_extendidos.yml   # CI: todos los tests + manual al día
     └── ejecucion_diaria.yml   # Ciclo diario automático
 ```
 
@@ -168,7 +187,7 @@ pip install -r requirements.txt
 # 3. Configurar variables de entorno (ver sección Variables)
 
 # 4. Correr localmente
-uvicorn main:app --reload
+uvicorn app_extendida:app --reload
 ```
 
 ---
@@ -187,13 +206,16 @@ Ejecuta un ciclo completo de scraping y análisis.
 ### API
 ```
 GET  /api/status              → Estado del sistema
+GET  /api/estado-sistema      → Estado detallado (también en la página /estado)
 GET  /api/reportes            → Lista de reportes disponibles
 GET  /api/licitaciones/datos  → Datos del último reporte
-POST /api/licitaciones/ejecutar → Ejecutar análisis manual
+GET  /api/reporte/{fecha}/excel → Descarga el Excel de un día
+POST /api/licitaciones/ejecutar → Ejecutar análisis manual (un día pasado con reporte requiere ADMIN_KEY)
 GET  /docs                    → Swagger UI
 
 # Agentic AI (opcional, requiere ANTHROPIC_API_KEY)
 GET  /api/ia/status           → Indica si la IA está configurada
+GET  /api/ia/usos             → Consultas de IA que le quedan hoy al visitante
 POST /api/ia/clasificar       → Segunda opinión de Claude sobre un aviso BORA
 POST /api/ia/explicar-riesgo  → Explicación en lenguaje natural de un score de riesgo
 ```
@@ -202,11 +224,9 @@ POST /api/ia/explicar-riesgo  → Explicación en lenguaje natural de un score d
 
 ## 🔐 Panel de Administración
 
-Accedé a las estadísticas de donaciones en:
-
-```
-https://gobbocomprartgn-production.up.railway.app/admin?key=TU_ADMIN_KEY
-```
+Accedé a las estadísticas de donaciones en `https://gobbocomprartgn-production.up.railway.app/admin`
+e ingresá la clave (`ADMIN_KEY`) en el formulario. La sesión queda en una cookie: la clave no va en la URL.
+Con la sesión iniciada también se puede volver a ejecutar un día pasado desde Análisis en Vivo.
 
 Muestra:
 - Total de eventos de donación
@@ -221,8 +241,9 @@ Muestra:
 Los tests corren automáticamente en cada Pull Request via GitHub Actions.
 
 ```bash
-# Correr localmente
-pytest test_auditoria.py -v
+# Correr localmente (todos los tests)
+pip install -r requirements-dev.txt
+pytest -v
 ```
 
 **Qué testean:**
@@ -244,7 +265,8 @@ Configurar en Railway → tu servicio → Variables:
 | `TGN_TOKEN` | Bearer token de presupuestoabierto.gob.ar para el cruce de pagos TGN |
 | `CORS_ORIGINS` | Orígenes permitidos separados por coma (default: el dominio de Railway) |
 | `ANTHROPIC_API_KEY` | Habilita los endpoints `/api/ia/*` (agentic AI, opcional) |
-| `ANTHROPIC_MODEL` | Modelo a usar en `/api/ia/*` (default: `claude-sonnet-4-5`) |
+| `ANTHROPIC_MODEL` | Modelo a usar en `/api/ia/*` (default: `claude-sonnet-5-5`) |
+| `RESPALDOS_DIR` | Carpeta de respaldos de reportes reemplazados (default: `/app/respaldos`) |
 
 ---
 

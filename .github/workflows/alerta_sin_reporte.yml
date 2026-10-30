@@ -1,0 +1,75 @@
+name: Alerta si falta el reporte del día
+
+# Complementa a ejecucion_diaria.yml (que no se modifica). Ese workflow termina
+# en verde aunque no genere reporte: diario.py sale con código 0 cuando el BORA
+# no responde. Así pasaron sin aviso del 22/10 al 30/10/2026, porque el BORA
+# dejó de responder a las IP de GitHub. Este workflow corre después de los dos
+# intentos del cron y de la corrida desde la PC (tools/actualizar_desde_pc.py),
+# y falla con un mail si en `desarrollo` sigue sin estar el reporte de hoy.
+
+on:
+  schedule:
+    - cron: '0 17 * * 1-5'  # 14:00 Argentina
+  workflow_dispatch:
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: desarrollo
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - run: pip install holidays
+
+      - name: Buscar el reporte de hoy
+        id: chequeo
+        run: |
+          python - <<'EOF'
+          import os
+          from datetime import datetime, timedelta, timezone
+          import holidays
+          hoy = datetime.now(timezone(timedelta(hours=-3))).date()
+          habil = hoy.weekday() < 5 and hoy not in holidays.Argentina(years=hoy.year)
+          ruta = f"data/{hoy:%Y-%m}/reporte_{hoy:%Y-%m-%d}.xlsx"
+          falta = habil and not os.path.exists(ruta)
+          print(f"hoy={hoy} habil={habil} {ruta} existe={os.path.exists(ruta)}")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"fecha={hoy}\nfalta={'si' if falta else 'no'}\n")
+          EOF
+
+      - name: Probar el BORA desde GitHub (diagnóstico)
+        if: steps.chequeo.outputs.falta == 'si'
+        run: curl -s -o /dev/null -m 20 -w "BORA HTTP %{http_code} en %{time_total}s\n" https://www.boletinoficial.gob.ar/ || echo "BORA sin respuesta desde GitHub"
+
+      - name: Avisar por mail
+        if: steps.chequeo.outputs.falta == 'si'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USER }}
+          password: ${{ secrets.MAIL_PASS }}
+          to: ${{ secrets.MAIL_TO }}
+          from: Monitor BORA <${{ secrets.MAIL_USER }}>
+          subject: "Monitor diario SIN REPORTE - ${{ steps.chequeo.outputs.fecha }}"
+          body: |
+            A las 14:00 no está en `desarrollo` el reporte del ${{ steps.chequeo.outputs.fecha }}.
+
+            Lo más probable es que el BORA siga sin responder a los servidores de GitHub.
+            Generarlo desde una PC en Argentina:
+
+                python tools/actualizar_desde_pc.py --publicar
+
+            Ver: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+      - name: Marcar el run como fallido
+        if: steps.chequeo.outputs.falta == 'si'
+        run: |
+          echo "::error::Falta el reporte del ${{ steps.chequeo.outputs.fecha }}"
+          exit 1

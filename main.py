@@ -348,7 +348,7 @@ async def dashboard(request: Request):
         "riesgo_counts":  riesgo_counts,
         "tabla":          tabla,
         "sin_datos":      df.empty,
-        "ultimo_reporte": etiqueta_archivo(archivos[0]) if archivos else "Sin reportes — ejecute Análisis en Vivo",
+        "ultimo_reporte": etiqueta_archivo(archivos[0]) if archivos else "Sin reportes — use Carga de Datos",
         "ga_id":          ga_id,
     })
 

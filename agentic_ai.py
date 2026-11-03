@@ -47,6 +47,38 @@ def ia_disponible() -> bool:
     return _client is not None
 
 
+# Resultado de la última consulta real (no de la validación de la clave): lo
+# muestra /api/diagnostico. El 03/11/2026 la clave validaba bien pero todas las
+# consultas fallaban, y nada lo mostraba.
+ULTIMA_CONSULTA = {"ok": None, "motivo": None}
+
+# Claude Sonnet 5.5 piensa por defecto y la respuesta empieza con un bloque
+# `thinking`: leer content[0].text fallaba con "'ThinkingBlock' object has no
+# attribute 'text'". Para estas tareas cortas se apaga el razonamiento
+# (`between_tools` es la forma de apagarlo en Sonnet 5.5; `disabled` da 400).
+# Otros modelos se llaman sin el parámetro.
+_THINKING_APAGADO = {"claude-sonnet-5-5": {"type": "between_tools"}}
+
+
+def _consultar(**kwargs) -> str:
+    """Llama a la API y devuelve solo el texto de la respuesta (ignora bloques de razonamiento)."""
+    thinking = _THINKING_APAGADO.get(MODEL)
+    if thinking:
+        kwargs["thinking"] = thinking
+    try:
+        resp = _client.messages.create(model=MODEL, **kwargs)
+        if resp.stop_reason == "refusal":
+            raise RuntimeError("el modelo declinó responder esta consulta")
+        texto = "".join(b.text for b in resp.content if b.type == "text").strip()
+        if not texto:
+            raise RuntimeError(f"respuesta sin texto (stop_reason={resp.stop_reason})")
+    except Exception as e:
+        ULTIMA_CONSULTA.update(ok=False, motivo=str(e)[:300])
+        raise
+    ULTIMA_CONSULTA.update(ok=True, motivo=None)
+    return texto
+
+
 CATEGORIAS_VALIDAS = [
     "Privatización / Concesión",
     "Obra Pública / Contratos",
@@ -105,13 +137,11 @@ def clasificar_aviso_ia(texto: str, clasificacion_reglas: str = "") -> dict:
         f"Texto del aviso:\n{texto[:4000]}"
     )
     try:
-        resp = _client.messages.create(
-            model=MODEL,
-            max_tokens=400,
+        bruto = _consultar(
+            max_tokens=1024,
             system=_SYSTEM_PROMPT_CLASIFICAR,
             messages=[{"role": "user", "content": user_msg}],
         )
-        bruto = resp.content[0].text.strip()
         if bruto.startswith("```"):
             bruto = bruto.strip("`")
             bruto = bruto[bruto.find("{"):]
@@ -155,9 +185,8 @@ def explicar_riesgo_licitacion(fila: dict) -> dict:
         f"Etapa del flujo: {fila.get('etapa', 'n/a')} | Alerta: {fila.get('alerta', 'n/a')}"
     )
     try:
-        resp = _client.messages.create(
-            model=MODEL,
-            max_tokens=300,
+        explicacion = _consultar(
+            max_tokens=1024,
             system=(
                 "Redactá en español, en un párrafo breve (3-4 oraciones), por qué "
                 "este proceso de contratación pública quedó marcado con ese nivel "
@@ -168,7 +197,7 @@ def explicar_riesgo_licitacion(fila: dict) -> dict:
             ),
             messages=[{"role": "user", "content": resumen}],
         )
-        return {"disponible": True, "explicacion": resp.content[0].text.strip(), "modelo": MODEL}
+        return {"disponible": True, "explicacion": explicacion, "modelo": MODEL}
     except Exception as e:
         logger.warning(f"⚠️ agentic_ai.explicar_riesgo_licitacion falló: {e}")
         return {"disponible": False, "motivo": str(e)}

@@ -209,7 +209,7 @@ PLANTILLA = """<!DOCTYPE html>
                 <a href="https://mapatransparencia-production.up.railway.app" target="_blank">🗺️ Mapa</a>
                 <a href="/">📊 Dashboard</a>
                 <a href="/licitaciones">🏛️ Licitaciones</a>
-                <a href="/analisis-vivo">🚀 Análisis en Vivo</a>
+                <a href="/analisis-vivo">📥 Carga de Datos</a>
                 <a href="/documentacion">📖 Documentación</a>
                 <a href="/manual" class="active">📘 Manual</a>
                 <a href="/estado">🩺 Estado</a>

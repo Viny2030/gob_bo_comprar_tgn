@@ -77,7 +77,7 @@ No hace falta ejecutar nada a mano para el seguimiento diario.
 
 - **Dashboard:** resumen del último reporte.
 - **Licitaciones:** flujo cruzado BORA → Comprar → TGN del último reporte, con detalle por adjudicación.
-- **Análisis en Vivo:** ejecución manual del ciclo para un día.
+- **Carga de Datos:** trae los reportes publicados, elige el día y permite la carga manual.
 - **Documentación:** marco teórico y descargas.
 - **Manual:** este documento.
 - **Estado:** salud del sistema y días faltantes (Sección 12).
@@ -93,15 +93,15 @@ Muestra el último reporte disponible.
 - **Detalle del Análisis Algorítmico:** hasta 50 filas con organismo, tipo de proceso, índice y nivel.
 - **Último reporte:** el archivo del día más reciente. Se descarga desde la página Estado o con `GET /api/reporte/AAAA-MM-DD/excel`.
 
-## 7. Análisis en Vivo
+## 7. Carga de Datos
 
-Permite ejecutar el ciclo para un día elegido.
+Desde el 22/10/2026 el Boletín Oficial no responde a servidores ubicados fuera de Argentina, así que el análisis ya no se ejecuta en el servidor. Los reportes diarios se generan en un equipo en Argentina y se publican en el repositorio del proyecto. Esta página (antes "Análisis en Vivo") los carga.
 
-1. Elija un día en el calendario. Se muestran todos los días desde el 23/02/2026; los que ya tienen reporte aparecen marcados.
-2. Pulse 🚀. El análisis corre en segundo plano y la pantalla consulta su avance; suele tardar entre uno y cinco minutos.
-3. Al terminar se muestran los totales y enlaces al Dashboard y a Licitaciones.
+1. Pulse 🔄 **Traer reportes publicados** (o 🚀 **Actualizar datos en vivo** en Licitaciones): el servidor baja los reportes que todavía no tiene. Tarda unos segundos.
+2. Elija un día de la lista; solo aparecen los días con reporte. El enlace abre ese día en Licitaciones, con su análisis normativo, o descarga el Excel.
+3. **Carga manual (administración):** para subir un Excel generado fuera del circuito automático, indique el día, el tipo de archivo y la clave de administración. Si el día ya tenía reporte, el anterior se respalda antes de reemplazarlo.
 
-> **Tenga en cuenta:** solo puede correr un análisis por vez y como máximo uno cada 10 minutos. Para un día pasado se consulta únicamente el BORA, porque Comprar y TGN solo tienen el estado de hoy. Por eso, volver a ejecutar un día pasado que ya tiene reporte lo reemplazaría por uno con menos datos: requiere la clave de administración y, antes de reemplazarlo, el sistema guarda una copia de respaldo. Un día pasado que todavía no tiene reporte se puede completar sin clave.
+> **Marco normativo:** cada aviso se cruza con el régimen que le corresponde (Dec. Delegado 1023/2001, Ley 13.064 u otras) y se señalan los entes con régimen propio y las contrataciones directas. El catálogo de normas, con su estado de verificación, está en `/marco-normativo`. Es un indicador formal, no un dictamen jurídico.
 
 ## 8. Licitaciones — Flujo cruzado BORA → Comprar → TGN
 
@@ -185,7 +185,7 @@ Documentación interactiva en `/docs`.
 3. Verifique el ícono ✓/⚠️ antes de dar por bueno un CUIT.
 4. Preste especial atención a cualquier 🌍 ALERTA INTERNACIONAL.
 5. Abra el aviso original del BORA (enlace en cada fila) antes de sacar conclusiones.
-6. Si falta un día, mírelo en **Estado** y complételo desde **Análisis en Vivo**.
+6. Si falta un día, mírelo en **Estado** y genérelo desde el equipo en Argentina y tráigalo desde **Carga de Datos**.
 
 ## 16. Descargas
 

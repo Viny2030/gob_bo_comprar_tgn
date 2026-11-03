@@ -29,7 +29,7 @@ from datetime import datetime
 
 from fastapi import APIRouter
 
-from .salud_fuentes import bora_alcanzable, clave_ia_valida
+from .salud_fuentes import bora_alcanzable, clave_ia_valida, meaci_alcanzable
 
 RUTA_EJECUTAR = "/api/licitaciones/ejecutar"
 RUTA_ESTADO = "/api/licitaciones/estado"
@@ -117,8 +117,9 @@ class FallaRapida:
 async def diagnostico(forzar: bool = False):
     from .rutas import _dias_habiles_sin_reporte
     m = _main()
-    bora, ia = await asyncio.gather(asyncio.to_thread(bora_alcanzable, forzar),
-                                    asyncio.to_thread(clave_ia_valida, forzar))
+    bora, ia, meaci = await asyncio.gather(asyncio.to_thread(bora_alcanzable, forzar),
+                                           asyncio.to_thread(clave_ia_valida, forzar),
+                                           asyncio.to_thread(meaci_alcanzable, forzar))
     import agentic_ai
     # La clave puede validar y aun así fallar cada consulta (pasó el 03/11/2026):
     # se informa también cómo terminó la última consulta real, sin gastar una nueva.
@@ -130,6 +131,7 @@ async def diagnostico(forzar: bool = False):
         "version_falla_rapida": VERSION_FALLA_RAPIDA,
         "bora": bora,
         "ia": ia,
+        "meaci": meaci,
         "ultimo_reporte": m.etiqueta_archivo(archivos[0]) if archivos else None,
         "dias_habiles_sin_reporte_30d": _dias_habiles_sin_reporte(30),
         "analisis_en_vivo": job,

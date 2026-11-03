@@ -37,7 +37,7 @@ _HEADERS = {
 }
 
 _lock = threading.Lock()
-_cache = {"bora": None, "ia": None}
+_cache = {"bora": None, "ia": None, "meaci": None}
 
 
 def _cacheado(clave: str, vigencia: int, calcular):
@@ -70,6 +70,25 @@ def bora_alcanzable(forzar: bool = False) -> dict:
         with _lock:
             _cache["bora"] = None
     return _cacheado("bora", CACHE_BORA_SEG, _probar_bora)
+
+
+def _probar_meaci() -> dict:
+    """MEACI responde JSON en /api/meaci-stats; una dirección dada de baja devuelve 404 sin JSON."""
+    import main
+    try:
+        r = requests.get(f"{main.MEACI_URL}/api/meaci-stats", timeout=BORA_TIMEOUT_SEG)
+        ok = r.status_code == 200 and "json" in r.headers.get("content-type", "")
+        return {"alcanzable": ok, "http": r.status_code, "url": main.MEACI_URL}
+    except Exception as e:
+        return {"alcanzable": False, "http": None, "url": main.MEACI_URL, "error": type(e).__name__}
+
+
+def meaci_alcanzable(forzar: bool = False) -> dict:
+    """{'alcanzable': bool, 'http', 'url', 'verificado_en'[, 'error']}"""
+    if forzar:
+        with _lock:
+            _cache["meaci"] = None
+    return _cacheado("meaci", CACHE_BORA_SEG, _probar_meaci)
 
 
 def _probar_ia() -> dict:

@@ -58,7 +58,7 @@ app = FastAPI(
 )
 CORS_ORIGINS = [o.strip() for o in os.getenv(
     "CORS_ORIGINS",
-    "https://gobbocomprartgn-production.up.railway.app"
+    "https://comprar.ecosistematransparencia.com.ar,https://gobbocomprartgn-production.up.railway.app"
 ).split(",") if o.strip()]
 app.add_middleware(CORSMiddleware, allow_origins=CORS_ORIGINS, allow_credentials=True,
                    allow_methods=["*"], allow_headers=["*"])
@@ -72,8 +72,10 @@ _df_cache_archivo = None  # reporte del que salió el cache: si aparece uno más
 
 # ── MEACI URL (Monitor Internacional) ───────────────────────────────────────
 # Antes apuntaba a mapatransparencia-production y a /api/cruce-cuit, que no existen
-# (404): el cruce con sanciones internacionales nunca devolvía nada.
-MEACI_URL = os.getenv("MEACI_URL", "https://meaci-production.up.railway.app").rstrip("/")
+# (404): el cruce con sanciones internacionales nunca devolvía nada. Desde el
+# 03/11/2026 la dirección de Railway también está dada de baja (404 para todo):
+# se usa el dominio propio.
+MEACI_URL = os.getenv("MEACI_URL", "https://meaci.ecosistematransparencia.com.ar").rstrip("/")
 
 # ── DB helpers ───────────────────────────────────────────────────────────────
 async def get_db() -> Optional[asyncpg.Pool]:
@@ -767,25 +769,33 @@ async def cruce_cuit(cuit: str):
             r = await client.get(f"{MEACI_URL}/api/empresas/cuit/{cuit}")
             if r.status_code == 200:
                 return {"cuit": cuit, "sancionado": True, "fuente": "MEACI", "empresa": r.json()}
-            if r.status_code == 404:
+            # Un 404 con JSON es "CUIT no encontrado"; sin JSON, MEACI no está en esa
+            # dirección (antes se mostraba como "sin coincidencias" para todos).
+            if r.status_code == 404 and "json" in r.headers.get("content-type", ""):
                 return {"cuit": cuit, "sancionado": False, "fuente": "MEACI", "detalle": "sin coincidencias"}
-            return {"cuit": cuit, "sancionado": False, "fuente": "MEACI", "error": f"MEACI respondió {r.status_code}"}
+            return {"cuit": cuit, "sancionado": False, "fuente": "MEACI",
+                    "error": f"MEACI no disponible (HTTP {r.status_code} en {MEACI_URL})"}
     except Exception as e:
-        return {"cuit": cuit, "sancionado": False, "fuente": "MEACI", "error": str(e)}
+        return {"cuit": cuit, "sancionado": False, "fuente": "MEACI", "error": f"MEACI no disponible: {e}"}
 
 @app.get("/api/cruce-cuits-bulk")
 async def cruce_cuits_bulk(cuits: str):
     """Consulta múltiples CUITs separados por coma. Retorna solo los sancionados."""
     lista = [c.strip() for c in cuits.split(",") if c.strip()][:50]  # máximo 50 por llamada
-    alertas = {}
+    alertas, error = {}, None
     try:
         async with httpx.AsyncClient(timeout=10) as client:
             r = await client.get(f"{MEACI_URL}/api/cruce-cuits-bulk", params={"cuits": ",".join(lista)})
             if r.status_code == 200:
                 alertas = r.json().get("alertas", {})
-    except Exception:
-        pass
-    return {"alertas": alertas, "total_consultados": len(lista), "total_alertas": len(alertas)}
+            else:
+                error = f"MEACI no disponible (HTTP {r.status_code} en {MEACI_URL})"
+    except Exception as e:
+        error = f"MEACI no disponible: {e}"
+    resultado = {"alertas": alertas, "total_consultados": len(lista), "total_alertas": len(alertas)}
+    if error:
+        resultado["error"] = error  # sin esto, una falla se veía igual que "ninguna sanción"
+    return resultado
 
 # ── Validación de formato de CUIT (dígito verificador AFIP, local) ──────────
 

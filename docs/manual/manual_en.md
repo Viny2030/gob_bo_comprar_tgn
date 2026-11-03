@@ -174,7 +174,7 @@ When configured, the AI (Claude, by Anthropic) offers two functions:
 - **Explain risk:** writes in plain language why an award got its level, using only the indicators the matrix already calculated.
 - **Classify notice:** suggests a topic category for a notice's text (public works, concession, utility rates, etc.), with its reasoning.
 
-Each visitor can make 3 queries per day, and there is a daily cap for the whole site. Failed queries are not counted. The AI is advisory: **it does not change the risk index or level**.
+Each visitor can make 10 queries per day, and there is a daily cap for the whole site. Failed queries are not counted. The AI is advisory: **it does not change the risk index or level**.
 
 ## 13. System status
 

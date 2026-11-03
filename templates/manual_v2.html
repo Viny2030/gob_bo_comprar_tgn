@@ -146,7 +146,7 @@ GET /api/cruce-cuits-bulk?cuits=cuit1,cuit2,cuit3   (hasta 50)</pre>
 <section class="doc-section" id="es-12"><h2 class="manual-h2">12. Segunda opinión con IA</h2>
 <p class="manual-p">Cuando está configurada, la IA (Claude, de Anthropic) ofrece dos funciones:</p>
 <ul class="manual-list"><li><strong>Explicar riesgo:</strong> redacta en lenguaje simple por qué una adjudicación quedó en su nivel, usando solo los indicadores que ya calculó la matriz.</li><li><strong>Clasificar aviso:</strong> propone una categoría temática para el texto de un aviso (obra pública, concesión, tarifas, etc.), con su razonamiento.</li></ul>
-<p class="manual-p">Cada visitante puede hacer 3 consultas por día, y hay un tope diario para todo el sitio. Las consultas que fallan no se descuentan. La IA es orientativa: <strong>no cambia el índice ni el nivel de riesgo</strong>.</p>
+<p class="manual-p">Cada visitante puede hacer 10 consultas por día, y hay un tope diario para todo el sitio. Las consultas que fallan no se descuentan. La IA es orientativa: <strong>no cambia el índice ni el nivel de riesgo</strong>.</p>
 </section>
 <section class="doc-section" id="es-13"><h2 class="manual-h2">13. Estado del sistema</h2>
 <p class="manual-p">La página <code class="inline">/estado</code> muestra la hora de Argentina, el último reporte (con enlace de descarga), cuántas filas trajo cada fuente, los días hábiles de los últimos 30 que no tienen reporte, si la base de datos y la IA están disponibles, y si la protección de reportes está activa. <code class="inline">GET /api/diagnostico</code> informa además si el servidor llega al BORA y cómo terminó la última consulta a la IA.</p>
@@ -241,7 +241,7 @@ GET /api/cruce-cuits-bulk?cuits=cuit1,cuit2,cuit3   (up to 50)</pre>
 <section class="doc-section" id="en-12"><h2 class="manual-h2">12. Second opinion with AI</h2>
 <p class="manual-p">When configured, the AI (Claude, by Anthropic) offers two functions:</p>
 <ul class="manual-list"><li><strong>Explain risk:</strong> writes in plain language why an award got its level, using only the indicators the matrix already calculated.</li><li><strong>Classify notice:</strong> suggests a topic category for a notice&#x27;s text (public works, concession, utility rates, etc.), with its reasoning.</li></ul>
-<p class="manual-p">Each visitor can make 3 queries per day, and there is a daily cap for the whole site. Failed queries are not counted. The AI is advisory: <strong>it does not change the risk index or level</strong>.</p>
+<p class="manual-p">Each visitor can make 10 queries per day, and there is a daily cap for the whole site. Failed queries are not counted. The AI is advisory: <strong>it does not change the risk index or level</strong>.</p>
 </section>
 <section class="doc-section" id="en-13"><h2 class="manual-h2">13. System status</h2>
 <p class="manual-p">The <code class="inline">/estado</code> page shows the Argentina time, the latest report (with a download link), how many rows each source returned, the business days in the last 30 without a report, whether the database and the AI are available, and whether report protection is active. <code class="inline">GET /api/diagnostico</code> also reports whether the server can reach the BORA and how the last AI query ended.</p>

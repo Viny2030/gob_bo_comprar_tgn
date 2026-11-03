@@ -549,7 +549,7 @@ function renderFlujo(data) {
                     ${riesgoAlto ? `<span class="chip chip-sin-cuit">⚠️ Riesgo ${r.nivel_riesgo_licit}</span>` : ''}
                 </div>
                 ${riesgoAlto ? `
-                <button class="btn-ia" id="btn-ia-${idx}" onclick="explicarConIA(${idx})">🤖 Explicar con IA (máx. 3 por día)</button>
+                <button class="btn-ia" id="btn-ia-${idx}" onclick="explicarConIA(${idx})">🤖 Explicar con IA (máx. 10 por día)</button>
                 <div class="ia-box" id="ia-box-${idx}"></div>` : ''}
             </div>
             <div class="flujo-right">
@@ -594,13 +594,13 @@ async function explicarConIA(idx) {
         } else {
             box.innerHTML = `<span class="ia-label">IA no disponible</span>${data.motivo || 'Configurá ANTHROPIC_API_KEY en Railway para habilitar esta función.'}`;
             btn.disabled = false;
-            btn.textContent = '🤖 Explicar con IA (máx. 3 por día)';
+            btn.textContent = '🤖 Explicar con IA (máx. 10 por día)';
         }
     } catch (e) {
         box.style.display = 'block';
         box.innerHTML = `<span class="ia-label">Error</span>No se pudo conectar con el servicio de IA.`;
         btn.disabled = false;
-        btn.textContent = '🤖 Explicar con IA (máx. 3 por día)';
+        btn.textContent = '🤖 Explicar con IA (máx. 10 por día)';
     }
 }
 

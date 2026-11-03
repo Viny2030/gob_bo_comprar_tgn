@@ -41,24 +41,44 @@ jobs:
           ref: desarrollo
           fetch-depth: 0
 
-      - name: Configurar Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
+      # actions/setup-python falla en este runner: su instalador corre `./setup.ps1`
+      # con powershell.exe y la política de ejecución de scripts de la PC lo bloquea
+      # (corridas del 02/11/2026). El runner es un servicio de NETWORK SERVICE, que
+      # tampoco ve el Python instalado en el perfil del usuario. Por eso se usa el
+      # paquete NuGet oficial de python.org (un zip con python.exe y pip), bajado
+      # una sola vez a la caché de herramientas del runner, y pasos en cmd: nada
+      # de esto ejecuta scripts de PowerShell.
+      - name: Preparar Python
+        shell: cmd
+        env:
+          PY_VERSION: '3.13.17'
+        run: |
+          set "PYDIR=${{ runner.tool_cache }}\monitor-python\%PY_VERSION%"
+          if not exist "%PYDIR%\tools\python.exe" (
+            if not exist "%PYDIR%" mkdir "%PYDIR%" || exit /b 1
+            curl.exe -fsSL -o "%PYDIR%\python.zip" "https://api.nuget.org/v3-flatcontainer/python/%PY_VERSION%/python.%PY_VERSION%.nupkg" || exit /b 1
+            rem tar.exe de Windows (bsdtar) abre .zip; el tar de Git no, por eso la ruta completa
+            "%SystemRoot%\System32\tar.exe" -xf "%PYDIR%\python.zip" -C "%PYDIR%" || exit /b 1
+            del "%PYDIR%\python.zip"
+          )
+          "%PYDIR%\tools\python.exe" --version || exit /b 1
+          echo PYTHON_MONITOR=%PYDIR%\tools\python.exe>> "%GITHUB_ENV%"
 
       - name: Instalar librerías
+        shell: cmd
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          "%PYTHON_MONITOR%" -m pip install --disable-pip-version-check -q --upgrade pip || exit /b 1
+          "%PYTHON_MONITOR%" -m pip install --disable-pip-version-check -q -r requirements.txt || exit /b 1
 
       - name: Generar y publicar los reportes que falten
+        shell: cmd
         env:
           TGN_TOKEN: ${{ secrets.TGN_TOKEN }}
           PYTHONIOENCODING: utf-8
         run: |
-          git config user.name "Robot Monitor"
-          git config user.email "robot@noreply.github.com"
-          python -W ignore tools/actualizar_desde_pc.py --publicar --desde "${{ github.event.inputs.desde || '2026-10-21' }}"
+          git config user.name "Robot Monitor" || exit /b 1
+          git config user.email "robot@noreply.github.com" || exit /b 1
+          "%PYTHON_MONITOR%" -W ignore tools/actualizar_desde_pc.py --publicar --desde "${{ github.event.inputs.desde || '2026-10-21' }}"
 
       - name: Notificar fallo
         if: failure()

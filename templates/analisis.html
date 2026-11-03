@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Análisis en Vivo - Monitor XAI</title>
+    <title>Carga de Datos - Monitor XAI</title>
     <link rel="stylesheet" href="/static/style.css">
     <style>
         .selector-dia {
@@ -68,6 +68,10 @@
         }
         .resumen-dia.visible { display: block; }
         .resumen-dia strong { color: var(--accent-cyan); }
+        .form-carga { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin:16px 0; }
+        .form-carga label { display:flex; flex-direction:column; gap:6px; font-size:.8rem; color:var(--text-secondary); }
+        .form-carga input, .form-carga select { background:var(--bg-secondary); border:1px solid var(--border); color:var(--text-primary); border-radius:8px; padding:8px 10px; font-family:var(--mono); font-size:.8rem; }
+        .resumen-dia a { color:var(--accent-cyan); }
     </style>
 </head>
 <body>
@@ -81,7 +85,7 @@
                 <a href="https://mapatransparencia-production.up.railway.app" target="_blank">🗺️ Mapa</a>
                 <a href="/">📊 Dashboard</a>
                 <a href="/licitaciones">🏛️ Licitaciones</a>
-                <a href="/analisis-vivo" class="active">🚀 Análisis en Vivo</a>
+                <a href="/analisis-vivo" class="active">📥 Carga de Datos</a>
                 <a href="/documentacion">📖 Documentación</a>
                 <a href="/manual">📘 Manual</a>
                 <a href="/estado">🩺 Estado</a>
@@ -91,126 +95,66 @@
     </header>
 
     <main>
-
-        <!-- BANNER FIN DE SEMANA -->
-        <div id="banner-finde" style="display:none; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.4); border-radius:10px; padding:16px 20px; margin-bottom:24px;">
-            <p style="margin:0; font-size:0.88rem; color:#f59e0b;">
-                📅 <strong>Hoy es fin de semana.</strong> Los organismos del Estado no publican los sábados ni domingos —
-                el scraper no genera datos nuevos. Te recomendamos usar esta herramienta de <strong>lunes a viernes</strong>.
-                Podés ver los datos del último día hábil seleccionando una fecha anterior.
+        <section class="selector-dia">
+            <h3>📥 Carga del dataset</h3>
+            <p class="info" style="margin-bottom:14px">
+                Desde el 22/10/2026 el Boletín Oficial no responde a servidores ubicados fuera de
+                Argentina, así que el análisis ya no se ejecuta en este servidor. Los reportes diarios
+                (BORA → Comprar → TGN, con la matriz XAI aplicada) se generan en un equipo en Argentina
+                y se publican en el repositorio del proyecto. Desde acá se cargan esos reportes y se
+                elige qué día ver.
             </p>
-        </div>
-        <script>
-            // Mostrar banner si es sábado (6) o domingo (0)
-            const diaSemana = new Date().getDay();
-            if (diaSemana === 0 || diaSemana === 6) {
-                document.getElementById('banner-finde').style.display = 'block';
-            }
-        </script>
+            <button id="btnActualizar" onclick="actualizarDataset()">🔄 Traer reportes publicados</button>
+            <div id="resultadoActualizar" style="display:none;margin-top:16px"></div>
+        </section>
+
         <!-- SELECTOR DE DÍA -->
         <section class="selector-dia">
-            <h3>📅 Seleccionar Día de Análisis</h3>
+            <h3>📅 Días con reporte</h3>
             <div class="dias-grid" id="diasGrid">
                 <span style="color:var(--text-muted);font-size:0.82rem;font-family:var(--mono)">Cargando días disponibles...</span>
             </div>
             <div class="resumen-dia" id="resumenDia"></div>
         </section>
 
-        <!-- ANÁLISIS -->
+        <!-- CARGA MANUAL -->
         <section class="analisis-vivo">
-            <h2>🔗 Conexión Directa: Comprar.gob.ar</h2>
+            <h2>📤 Carga manual de un reporte (administración)</h2>
             <p class="info">
-                Este proceso ejecuta el scraper sobre el portal de compras públicas
-                y aplica la matriz XAI de detección de fenómenos corruptivos.
-                Los resultados se acumulan por día.
+                Para cargar un Excel generado fuera del circuito automático (por ejemplo, con
+                <code>tools/actualizar_desde_pc.py</code> sin publicar). Si el día ya tiene reporte,
+                el anterior se respalda antes de reemplazarlo.
             </p>
-            <p class="info-aviso">
-                ⚠️ <strong>Nota:</strong> El análisis puede tardar entre 30 y 90 segundos
-                dependiendo de la disponibilidad del portal. Si ya existe un reporte para
-                el día seleccionado, se mostrará sin volver a ejecutar el scraping.
-            </p>
-
-            <button id="btnAnalisis" onclick="ejecutarAnalisis()">
-                🚀 Iniciar Ciclo de Análisis Completo
-            </button>
-
-            <div id="spinner" class="spinner" style="display:none;">
-                <div class="loader"></div>
-                <p>Ejecutando Paso 1-2-3 (Scraping BORA + Comprar + TGN + Cruce)...</p>
-                <p class="tiempo-estimado">Tiempo estimado: 30–180 segundos</p>
+            <div class="form-carga">
+                <label>Día <input type="date" id="cargaFecha"></label>
+                <label>Tipo
+                    <select id="cargaTipo">
+                        <option value="reporte">reporte_AAAA-MM-DD.xlsx</option>
+                        <option value="flujo">flujo_licitaciones_AAAA-MM-DD.xlsx</option>
+                    </select>
+                </label>
+                <label>Archivo <input type="file" id="cargaArchivo" accept=".xlsx"></label>
+                <label>Clave de administración <input type="password" id="cargaClave" autocomplete="off"></label>
             </div>
-
-            <div id="resultado" style="display:none;"></div>
+            <button id="btnSubir" onclick="subirReporte()">📤 Cargar reporte</button>
+            <div id="resultadoSubir" style="display:none;margin-top:16px"></div>
         </section>
     </main>
 
     <script>
         let diaSeleccionado = null;
-        let diasConDatos = [];
-
-        // ── Cargar días disponibles al iniciar ──
-        async function cargarDias() {
-            try {
-                const resp = await fetch('/api/dias-disponibles');
-                const data = await resp.json();
-                diasConDatos = data.dias || [];
-                renderizarDias(data.dias_todos || [], diasConDatos);
-            } catch (e) {
-                document.getElementById('diasGrid').innerHTML =
-                    '<span style="color:var(--accent-red);font-size:0.82rem">Error cargando días</span>';
-            }
-        }
-
-        function renderizarDias(todosDias, diasConDatos) {
-            const grid = document.getElementById('diasGrid');
-            if (todosDias.length === 0) {
-                grid.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem;font-family:var(--mono)">No hay días registrados aún</span>';
-                return;
-            }
-            grid.innerHTML = '';
-            todosDias.forEach(dia => {
-                const tieneDatos = diasConDatos.includes(dia);
-                const btn = document.createElement('button');
-                btn.className = 'btn-dia' + (tieneDatos ? ' tiene-datos' : '');
-                btn.textContent = formatearFecha(dia);
-                btn.dataset.dia = dia;
-                btn.onclick = () => seleccionarDia(dia, tieneDatos);
-                grid.appendChild(btn);
-            });
-            // Seleccionar el más reciente por defecto
-            if (todosDias.length > 0) {
-                seleccionarDia(todosDias[todosDias.length - 1], diasConDatos.includes(todosDias[todosDias.length - 1]));
-            }
-        }
 
         function formatearFecha(fecha) {
-            // "2026-02-23" → "23/02/2026"
             const partes = fecha.split('-');
             return `${partes[2]}/${partes[1]}/${partes[0]}`;
         }
 
-        function seleccionarDia(dia, tieneDatos) {
-            diaSeleccionado = dia;
-            // Resaltar botón activo
-            document.querySelectorAll('.btn-dia').forEach(b => b.classList.remove('activo'));
-            const btnActivo = document.querySelector(`.btn-dia[data-dia="${dia}"]`);
-            if (btnActivo) btnActivo.classList.add('activo');
-
-            // Mostrar resumen
-            const resumen = document.getElementById('resumenDia');
-            if (tieneDatos) {
-                resumen.innerHTML = `📁 Día <strong>${formatearFecha(dia)}</strong>: ya tiene reporte guardado. Podés ver los datos o ejecutar nuevamente para actualizar.`;
-                resumen.classList.add('visible');
-            } else {
-                resumen.innerHTML = `📋 Día <strong>${formatearFecha(dia)}</strong>: sin reporte aún. Hacé clic en el botón para ejecutar el análisis.`;
-                resumen.classList.add('visible');
-            }
+        function esc(t) {
+            return String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         }
 
         // ── Parsear una respuesta que debería ser JSON, sin explotar si no lo es ──
-        // (el proxy de Railway puede devolver un 502 con cuerpo de texto plano
-        // "upstream error" cuando una request tarda demasiado; sin este chequeo
-        // el .json() de más abajo tira "Unexpected token 'u'...")
+        // (el proxy de Railway puede devolver un 502 con cuerpo de texto plano)
         async function leerJSON(resp) {
             const ct = resp.headers.get('content-type') || '';
             if (!ct.includes('application/json')) {
@@ -220,123 +164,112 @@
             return resp.json();
         }
 
-        // ── Ejecutar análisis para el día seleccionado ──
-        // El scraping puede tardar varios minutos en el peor caso, y el proxy de
-        // Railway corta las requests HTTP largas antes de eso. Por eso el POST
-        // solo INICIA el análisis en background y devuelve enseguida; acá
-        // sondeamos /api/licitaciones/estado hasta que termine.
-        async function ejecutarAnalisis() {
-            if (!diaSeleccionado) {
-                alert('Seleccioná un día primero');
-                return;
-            }
-
-            const btn = document.getElementById('btnAnalisis');
-            const spinner = document.getElementById('spinner');
-            const resultado = document.getElementById('resultado');
-
-            btn.disabled = true;
-            spinner.style.display = 'block';
-            resultado.style.display = 'none';
-
+        // ── Días con reporte: solo esos se muestran, el más reciente primero ──
+        async function cargarDias() {
             try {
-                const respInicio = await fetch(`/api/licitaciones/ejecutar?fecha=${diaSeleccionado}`, {
-                    method: 'POST'
-                });
-                const dataInicio = await leerJSON(respInicio);
-
-                if (respInicio.status === 409 || respInicio.status === 429) {
-                    resultado.innerHTML = `
-                        <div class="error">
-                            <h3>⏳ ${respInicio.status === 429 ? 'Esperá unos minutos' : 'Análisis en curso'}</h3>
-                            <p>${dataInicio.detail}</p>
-                        </div>`;
-                    spinner.style.display = 'none';
-                    resultado.style.display = 'block';
-                    btn.disabled = false;
+                const data = await leerJSON(await fetch('/api/dias-disponibles'));
+                const dias = (data.dias || []).slice().reverse();
+                const grid = document.getElementById('diasGrid');
+                if (!dias.length) {
+                    grid.innerHTML = '<span style="color:var(--text-muted);font-size:0.82rem;font-family:var(--mono)">Todavía no hay reportes cargados</span>';
                     return;
                 }
-                if (!respInicio.ok) {
-                    throw new Error(dataInicio.detail || 'No se pudo iniciar el análisis');
-                }
-
-                // ── Sondeo del estado hasta que el background termine ──
-                const inicioSondeo = Date.now();
-                const LIMITE_MS = 8 * 60 * 1000; // 8 minutos
-                let data = null;
-                while (true) {
-                    await new Promise(r => setTimeout(r, 4000));
-                    const respEstado = await fetch('/api/licitaciones/estado');
-                    const estado = await leerJSON(respEstado);
-
-                    if (!estado.corriendo) {
-                        if (estado.error) {
-                            throw new Error(estado.error);
-                        }
-                        data = estado.resultado;
-                        break;
-                    }
-                    if (Date.now() - inicioSondeo > LIMITE_MS) {
-                        throw new Error('Tiempo de espera agotado (8 minutos). El scraping tardó demasiado — probá de nuevo más tarde.');
-                    }
-                }
-
-                {
-                    resultado.innerHTML = `
-                        <div class="exito">
-                            <h3>✅ Análisis completado — ${formatearFecha(diaSeleccionado)}</h3>
-                            <div class="metricas" style="margin-top:16px;margin-bottom:16px">
-                                <div class="card">
-                                    <h3>Licitaciones BORA</h3>
-                                    <span class="numero">${data.licitaciones_bora}</span>
-                                </div>
-                                <div class="card">
-                                    <h3>Adjudicaciones</h3>
-                                    <span class="numero">${data.adjudicaciones}</span>
-                                </div>
-                                <div class="card">
-                                    <h3>Con CUIT</h3>
-                                    <span class="numero">${data.adjudicaciones_con_cuit}</span>
-                                </div>
-                                <div class="card">
-                                    <h3>Procesos Comprar</h3>
-                                    <span class="numero">${data.comprar}</span>
-                                </div>
-                                <div class="card">
-                                    <h3>Flujo Completo</h3>
-                                    <span class="numero">${data.flujo_completo}</span>
-                                </div>
-                                <div class="card" style="border-color:rgba(239,68,68,0.4)">
-                                    <h3>Riesgo Alto</h3>
-                                    <span class="numero" style="color:#ef4444">${data.riesgo_alto}</span>
-                                </div>
-                                <div class="card" style="border-color:rgba(245,158,11,0.4)">
-                                    <h3>Riesgo Medio</h3>
-                                    <span class="numero" style="color:#f59e0b">${data.riesgo_medio}</span>
-                                </div>
-                            </div>
-                            <p>📁 Reporte completo: <strong style="color:var(--accent-cyan)">${data.archivo_reporte}</strong></p>
-                            <p>📁 Flujo licitaciones: <strong style="color:var(--accent-cyan)">${data.archivo_flujo}</strong></p>
-                            <p style="margin-top:12px"><a href="/">📊 Ver resultados en el Dashboard →</a></p>
-                            <p style="margin-top:6px"><a href="/licitaciones">🏛️ Ver Licitaciones →</a></p>
-                        </div>`;
-                    // Recargar días para marcar el nuevo como "tiene datos"
-                    cargarDias();
-                }
+                grid.innerHTML = '';
+                dias.forEach(dia => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn-dia tiene-datos';
+                    btn.textContent = formatearFecha(dia);
+                    btn.dataset.dia = dia;
+                    btn.onclick = () => seleccionarDia(dia);
+                    grid.appendChild(btn);
+                });
+                seleccionarDia(dias[0]);
             } catch (e) {
-                resultado.innerHTML = `
-                    <div class="error">
-                        <h3>❌ Error en el análisis</h3>
-                        <p>${e.message}</p>
-                    </div>`;
+                document.getElementById('diasGrid').innerHTML =
+                    '<span style="color:var(--accent-red);font-size:0.82rem">Error cargando días</span>';
             }
+        }
 
-            spinner.style.display = 'none';
-            resultado.style.display = 'block';
+        function seleccionarDia(dia) {
+            diaSeleccionado = dia;
+            document.querySelectorAll('.btn-dia').forEach(b => b.classList.toggle('activo', b.dataset.dia === dia));
+            const resumen = document.getElementById('resumenDia');
+            resumen.innerHTML = `📁 Día <strong>${formatearFecha(dia)}</strong>:
+                <a href="/licitaciones?fecha=${dia}">🏛️ ver licitaciones y marco normativo →</a> ·
+                <a href="/api/reporte/${dia}/excel">⬇️ descargar Excel</a>`;
+            resumen.classList.add('visible');
+        }
+
+        function tarjetas(r) {
+            return `<div class="metricas" style="margin-top:16px;margin-bottom:8px">
+                <div class="card"><h3>Licitaciones BORA</h3><span class="numero">${r.licitaciones_bora ?? 0}</span></div>
+                <div class="card"><h3>Adjudicaciones</h3><span class="numero">${r.adjudicaciones ?? 0}</span></div>
+                <div class="card"><h3>Con CUIT</h3><span class="numero">${r.adjudicaciones_con_cuit ?? 0}</span></div>
+                <div class="card"><h3>Procesos Comprar</h3><span class="numero">${r.comprar ?? 0}</span></div>
+                <div class="card"><h3>Flujo Completo</h3><span class="numero">${r.flujo_completo ?? 0}</span></div>
+            </div>`;
+        }
+
+        async function actualizarDataset() {
+            const btn = document.getElementById('btnActualizar');
+            const out = document.getElementById('resultadoActualizar');
+            btn.disabled = true;
+            btn.textContent = '⏳ Consultando el repositorio...';
+            try {
+                const resp = await fetch('/api/datos/actualizar', { method: 'POST' });
+                const data = await leerJSON(resp);
+                if (!resp.ok) throw new Error(data.detail || 'No se pudo actualizar');
+                const nuevos = [...(data.nuevos || []), ...(data.actualizados || [])];
+                out.innerHTML = `<div class="exito">
+                    <h3>✅ ${nuevos.length ? nuevos.length + ' archivo(s) nuevo(s) o actualizado(s)' : 'El servidor ya tenía todos los reportes publicados'}</h3>
+                    <p>Último día publicado: <strong>${data.fecha ? formatearFecha(data.fecha) : '—'}</strong>
+                       · ${data.publicados} archivos en el repositorio</p>
+                    ${nuevos.length ? `<p style="font-size:.78rem;color:var(--text-muted)">${nuevos.map(esc).join(' · ')}</p>` : ''}
+                    ${(data.errores || []).length ? `<p style="color:#f59e0b">⚠️ No se pudieron bajar: ${data.errores.map(e => esc(e.archivo)).join(', ')}</p>` : ''}
+                    ${tarjetas(data.resumen || {})}
+                </div>`;
+                cargarDias();
+            } catch (e) {
+                out.innerHTML = `<div class="error"><h3>❌ No se pudo actualizar</h3><p>${esc(e.message)}</p></div>`;
+            }
+            out.style.display = 'block';
+            btn.disabled = false;
+            btn.textContent = '🔄 Traer reportes publicados';
+        }
+
+        async function subirReporte() {
+            const fecha = document.getElementById('cargaFecha').value;
+            const tipo = document.getElementById('cargaTipo').value;
+            const archivo = document.getElementById('cargaArchivo').files[0];
+            const clave = document.getElementById('cargaClave').value;
+            const out = document.getElementById('resultadoSubir');
+            const mostrar = html => { out.innerHTML = html; out.style.display = 'block'; };
+            if (!fecha || !archivo) {
+                mostrar('<div class="error"><p>Elegí el día y el archivo.</p></div>');
+                return;
+            }
+            const btn = document.getElementById('btnSubir');
+            btn.disabled = true;
+            try {
+                const resp = await fetch(`/api/admin/subir-reporte?fecha=${fecha}&tipo=${tipo}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/octet-stream', 'X-Admin-Key': clave },
+                    body: archivo,
+                });
+                const data = await leerJSON(resp);
+                if (!resp.ok) throw new Error(data.detail || 'No se pudo cargar');
+                mostrar(`<div class="exito">
+                    <h3>✅ ${esc(data.archivo)} ${data.reemplazado ? 'reemplazado (el anterior quedó respaldado)' : 'cargado'}</h3>
+                    ${tipo === 'reporte' ? tarjetas(data.resumen || {}) : ''}
+                    <p><a href="/licitaciones?fecha=${fecha}">🏛️ Ver ese día en Licitaciones →</a></p>
+                </div>`);
+                cargarDias();
+            } catch (e) {
+                mostrar(`<div class="error"><h3>❌ No se pudo cargar</h3><p>${esc(e.message)}</p></div>`);
+            }
             btn.disabled = false;
         }
 
-        // Iniciar
         cargarDias();
     </script>
 

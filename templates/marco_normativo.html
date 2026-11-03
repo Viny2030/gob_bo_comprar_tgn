@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marco normativo - Monitor XAI</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        table.normas { width:100%; border-collapse:collapse; font-size:.84rem; }
+        table.normas th { text-align:left; padding:8px; color:var(--text-muted); font-size:.72rem; text-transform:uppercase; letter-spacing:.05em; border-bottom:1px solid var(--border); }
+        table.normas td { padding:8px; border-bottom:1px solid var(--border); color:var(--text-secondary); vertical-align:top; }
+        table.normas td strong { color:var(--text-primary); }
+        .nota { display:block; margin-top:4px; font-size:.75rem; color:var(--accent-amber); }
+        .estado { font-family:var(--mono); font-size:.72rem; border:1px solid var(--border); border-radius:999px; padding:2px 8px; white-space:nowrap; }
+        .estado.verificada { color:#22c55e; border-color:rgba(34,197,94,.4); }
+        .estado.parcialmente { color:var(--accent-amber); border-color:rgba(245,158,11,.4); }
+        .tabla-scroll { overflow-x:auto; }
+        .doc-section p, .doc-section li { color:var(--text-secondary); line-height:1.6; }
+        .doc-section ul { margin:8px 0 0 20px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-inner">
+            <div class="header-brand">
+                <h1>⚖️ Monitor XAI <span class="badge">v2.0</span></h1>
+                <p>Ph.D. Vicente Humberto Monteverde · Algoritmos contra la Corrupción</p>
+            </div>
+            <nav>
+                <a href="https://mapatransparencia-production.up.railway.app" target="_blank">🗺️ Mapa</a>
+                <a href="/">📊 Dashboard</a>
+                <a href="/licitaciones">🏛️ Licitaciones</a>
+                <a href="/analisis-vivo">📥 Carga de Datos</a>
+                <a href="/documentacion">📖 Documentación</a>
+                <a href="/manual">📘 Manual</a>
+                <a href="/estado">🩺 Estado</a>
+                <a href="/docs">🔧 API</a>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="doc-section">
+            <h2>⚖️ Marco normativo de las contrataciones nacionales</h2>
+            <p>
+                Cada aviso del BORA se cruza con el régimen legal que le corresponde. El resultado aparece en
+                <a href="/licitaciones" style="color:var(--accent-cyan)">Licitaciones</a> y en
+                <a href="/api/licitaciones/normativa" style="color:var(--accent-cyan)">/api/licitaciones/normativa</a>.
+                Catálogo revisado el {{ revisado }} · <a href="/api/marco-normativo" style="color:var(--accent-cyan)">ver en JSON</a>.
+            </p>
+            <h3 style="margin-top:18px">Qué se evalúa</h3>
+            <ul>
+                <li><strong>Régimen material:</strong> bienes y servicios (Dec. Delegado 1023/2001), obra pública
+                    (Ley 13.064) o concesión (Leyes 17.520 / 23.696), según la categoría y el texto del aviso.</li>
+                <li><strong>Ámbito subjetivo:</strong> el Dec. 1023/2001 rige para la Administración Nacional
+                    (art. 8, inc. a, Ley 24.156). Empresas y sociedades del Estado, el Poder Judicial, el Poder
+                    Legislativo y las universidades contratan con regímenes propios: esos avisos se señalan y no se
+                    evalúan contra el Dec. 1030/2016.</li>
+                <li><strong>Procedimiento de selección:</strong> licitación o concurso público o privado, contratación
+                    directa (se pide verificar la causal del art. 25, inc. d, Dec. 1023/2001) o subasta.</li>
+                <li><strong>Monto en módulos:</strong> módulo de ${{ '{:,.0f}'.format(valor_modulo).replace(',', '.') }}
+                    ({{ fuente_modulo }}).
+                    {% if topes %}Topes por procedimiento configurados: {% for k, v in topes.items() %}{{ k }} = {{ v|int }} M{% if not loop.last %}, {% endif %}{% endfor %}.
+                    {% else %}Los topes por procedimiento (art. 27, Dec. 1030/2016) no se controlan: no se pudo confirmar
+                    el texto consolidado vigente después del Dec. 666/2024. Se pueden cargar en la variable
+                    <code>NORMATIVA_TOPES_MODULOS</code>.{% endif %}</li>
+                <li><strong>Controles transversales:</strong> transparencia activa (Ley 27.275), declaración jurada de
+                    intereses (Dec. 202/2017), habilidad fiscal (RG AFIP 4164/2017) y programa de integridad cuando el
+                    contrato lo aprueba una autoridad de rango no menor a ministro (Ley 27.401, art. 24).</li>
+            </ul>
+            <p style="margin-top:12px;font-size:.8rem">
+                ⚠️ Es un indicador de cumplimiento formal construido a partir del texto del aviso, no un dictamen jurídico.
+            </p>
+        </section>
+
+        <section class="doc-section">
+            <h2>📚 Normas</h2>
+            <div class="tabla-scroll">
+            <table class="normas">
+                <thead><tr><th>Norma</th><th>Materia</th><th>Ámbito</th><th>Estado</th></tr></thead>
+                <tbody>
+                {% for n in normas %}
+                <tr>
+                    <td><strong>{{ n.norma }}</strong><br>{{ n.nombre }}</td>
+                    <td>{{ n.materia }}{% if n.nota %}<span class="nota">{{ n.nota }}</span>{% endif %}</td>
+                    <td>{% for r in n.regimen %}{{ regimenes.get(r, 'Transversal') }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td>
+                    <td><span class="estado {{ n.estado.split(' ')[0] }}">{{ n.estado }}</span></td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+        </section>
+    </main>
+
+    <footer style="margin-top:3rem; padding:1.5rem 2rem; border-top:1px solid rgba(255,255,255,0.08); text-align:center;">
+        <p style="font-size:0.75rem; color:#64748b; line-height:1.6; max-width:800px; margin:0 auto;">
+            ⚠️ <strong>Aviso:</strong> Esta herramienta es de carácter experimental y académico. Los datos provienen de fuentes públicas oficiales del Estado argentino.
+            Los resultados son indicadores algorítmicos de riesgo — no implican juicio de valor, acusación ni determinación de responsabilidad sobre ninguna empresa, organismo o persona.
+        </p>
+    </footer>
+</body>
+</html>

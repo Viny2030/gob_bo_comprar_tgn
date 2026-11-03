@@ -35,13 +35,14 @@ RUTA_EJECUTAR = "/api/licitaciones/ejecutar"
 RUTA_ESTADO = "/api/licitaciones/estado"
 RUTAS_IA = ("/api/ia/clasificar", "/api/ia/explicar-riesgo")
 ANALISIS_MAX_MIN = int(os.getenv("ANALISIS_MAX_MIN", "15"))
-VERSION_FALLA_RAPIDA = "1.0.0"
+VERSION_FALLA_RAPIDA = "1.1.0"
 
 MENSAJE_BORA = (
     "El servidor no logra conectarse al Boletín Oficial en este momento: desde el "
     "22/10/2026 el BORA no responde a servidores ubicados fuera de Argentina. Los "
-    "reportes diarios se generan desde un equipo en Argentina y se publican acá; "
-    "podés consultar los días ya cargados en el selector de fecha."
+    "reportes diarios se generan desde un equipo en Argentina y se publican en el "
+    "repositorio: usá 'Actualizar datos en vivo' en Licitaciones o la página Carga "
+    "de Datos para traerlos y elegir el día."
 )
 
 router = APIRouter()
@@ -118,6 +119,10 @@ async def diagnostico(forzar: bool = False):
     m = _main()
     bora, ia = await asyncio.gather(asyncio.to_thread(bora_alcanzable, forzar),
                                     asyncio.to_thread(clave_ia_valida, forzar))
+    import agentic_ai
+    # La clave puede validar y aun así fallar cada consulta (pasó el 03/11/2026):
+    # se informa también cómo terminó la última consulta real, sin gastar una nueva.
+    ia = dict(ia, ultima_consulta=dict(agentic_ai.ULTIMA_CONSULTA))
     archivos = m.buscar_todos_los_xlsx(m.DATA_DIR)
     with m._analisis_lock:
         job = {k: v for k, v in m._analisis_job.items() if k != "terminado_en"}

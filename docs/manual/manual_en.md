@@ -77,7 +77,7 @@ No manual action is needed for daily monitoring.
 
 - **Dashboard:** summary of the latest report.
 - **Licitaciones (Tenders):** the BORA → Comprar → TGN cross-referenced flow for the latest report, with detail per award.
-- **Análisis en Vivo (Live Analysis):** manually runs the cycle for a given day.
+- **Carga de Datos (Data Loading):** loads the published reports, picks the day and allows manual uploads.
 - **Documentación (Documentation):** theoretical framework and downloads.
 - **Manual:** this document.
 - **Estado (Status):** system health and missing days (Section 12).
@@ -93,15 +93,15 @@ Shows the latest available report.
 - **Algorithmic Analysis Detail:** up to 50 rows with agency, procedure type, index and level.
 - **Latest report:** the file for the most recent day. Download it from the Status page or with `GET /api/reporte/YYYY-MM-DD/excel`.
 
-## 7. Live Analysis
+## 7. Data Loading
 
-Lets you run the cycle for a chosen day.
+Since 22 Oct 2026 the Boletín Oficial does not answer servers located outside Argentina, so the analysis no longer runs on the server. Daily reports are generated on a computer in Argentina and published in the project repository. This page (formerly "Live Analysis") loads them.
 
-1. Pick a day on the calendar. All days since 23 Feb 2026 are shown; those that already have a report are marked.
-2. Click 🚀. The analysis runs in the background and the screen polls its progress; it usually takes one to five minutes.
-3. When it finishes, the totals are shown along with links to the Dashboard and Tenders.
+1. Click 🔄 **Traer reportes publicados** (or 🚀 **Actualizar datos en vivo** under Tenders): the server downloads the reports it does not have yet. It takes a few seconds.
+2. Pick a day from the list; only days with a report are shown. The link opens that day under Tenders, with its legal-framework analysis, or downloads the Excel file.
+3. **Manual upload (admin):** to upload an Excel file produced outside the automatic pipeline, enter the day, the file type and the admin key. If the day already had a report, the previous one is backed up before it is replaced.
 
-> **Keep in mind:** only one analysis can run at a time, and at most one every 10 minutes. For a past day, only the BORA is queried, because Comprar and TGN only reflect today's state. Re-running a past day that already has a report would therefore replace it with a report containing less data: it requires the admin key, and the system saves a backup copy before replacing it. A past day that has no report yet can be filled in without a key.
+> **Legal framework:** each notice is matched to the regime that governs it (Delegated Decree 1023/2001, Law 13.064 and others), and entities with their own procurement regime and direct contracts are flagged. The catalogue of rules, with its verification status, is at `/marco-normativo`. It is a formal indicator, not a legal opinion.
 
 ## 8. Tenders — BORA → Comprar → TGN cross-referenced flow
 
@@ -185,7 +185,7 @@ Interactive documentation at `/docs`.
 3. Check the ✓/⚠️ icon before relying on a CUIT.
 4. Pay special attention to any 🌍 INTERNATIONAL ALERT.
 5. Open the original BORA notice (linked in each row) before drawing conclusions.
-6. If a day is missing, check it under **Status** and fill it in from **Live Analysis**.
+6. If a day is missing, check it under **Status** and generate it on the computer in Argentina and load it from **Data Loading**.
 
 ## 16. Downloads
 

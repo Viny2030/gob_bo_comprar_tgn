@@ -232,7 +232,7 @@
             <a href="https://mapatransparencia-production.up.railway.app" target="_blank">🗺️ Mapa</a>
             <a href="/">📊 Dashboard</a>
             <a href="/licitaciones" class="active">🏛️ Licitaciones</a>
-            <a href="/analisis-vivo">🚀 Análisis en Vivo</a>
+            <a href="/analisis-vivo">📥 Carga de Datos</a>
             <a href="/documentacion">📖 Documentación</a>
             <a href="/manual">📘 Manual</a>
             <a href="/estado">🩺 Estado</a>
@@ -249,7 +249,8 @@
             <span>Datos al: <strong id="fecha-reporte">—</strong> &nbsp;·&nbsp;
             Fuentes: BORA Sección 3ra · Comprar.gob.ar · TGN</span>
         </div>
-        <button class="btn-ejecutar" id="btn-ejecutar" onclick="ejecutarCiclo()">
+        <button class="btn-ejecutar" id="btn-ejecutar" onclick="ejecutarCiclo()"
+                title="Trae los reportes diarios publicados (se generan desde un equipo en Argentina)">
             <div class="spinner-inline" id="spinner"></div>
             <span id="btn-texto">🚀 Actualizar datos en vivo</span>
         </button>
@@ -261,7 +262,7 @@
 
     <div class="aviso-sin-datos" id="aviso-sin-datos" style="display:none">
         <div class="aviso-texto">
-            <strong>📭 Sin datos cargados.</strong> Presioná <strong>Actualizar datos en vivo</strong> para ejecutar el ciclo completo BORA → Comprar → TGN.
+            <strong>📭 Sin datos cargados.</strong> Presioná <strong>Actualizar datos en vivo</strong> para traer los reportes publicados del ciclo BORA → Comprar → TGN.
         </div>
     </div>
 
@@ -315,6 +316,22 @@
             <h3>Flujo Completo BORA→TGN</h3>
             <span class="numero" id="m-flujo-completo">—</span>
         </div>
+    </div>
+
+    <div class="panel" id="panel-normativa">
+        <div class="panel-header">
+            <div class="panel-title">⚖️ Marco normativo de los avisos</div>
+            <a class="panel-badge pb-cyan" href="/marco-normativo" style="text-decoration:none">Ver normas →</a>
+        </div>
+        <div id="normativa-resumen"><div class="empty">Cargando...</div></div>
+        <div class="tabla-scroll" style="margin-top:12px"><table>
+            <thead><tr><th>Organismo</th><th>Tipo proceso</th><th>Régimen</th><th>Monto (módulos)</th><th>Observaciones</th></tr></thead>
+            <tbody id="tbl-normativa"><tr><td colspan="5" class="empty">Cargando...</td></tr></tbody>
+        </table></div>
+        <p style="margin-top:10px;font-size:.72rem;color:var(--text-muted)">
+            Indicador de cumplimiento formal a partir del texto del aviso; no es un dictamen jurídico.
+            Se listan los avisos con alguna observación.
+        </p>
     </div>
 
     <div class="panel">
@@ -436,46 +453,41 @@ async function ejecutarCiclo() {
 
     btn.disabled = true;
     spinner.style.display = 'block';
-    txtBtn.textContent = 'Ejecutando...';
+    txtBtn.textContent = 'Actualizando...';
     resBox.style.display = 'none';
     resBox.className = 'resultado-box';
 
     try {
-        // El análisis corre en segundo plano: se inicia y se consulta el estado
-        const respInicio = await fetch('/api/licitaciones/ejecutar', { method: 'POST' });
-        const ini = await respInicio.json().catch(() => ({}));
-        let resp = respInicio, data = ini;
-        if (respInicio.status === 202) {
-            const t0 = Date.now();
-            while (true) {
-                await new Promise(r => setTimeout(r, 4000));
-                const est = await (await fetch('/api/licitaciones/estado')).json();
-                if (!est.corriendo) {
-                    if (est.error) { resp = { ok: false }; data = { detail: est.error }; }
-                    else { resp = { ok: true }; data = est.resultado || {}; }
-                    break;
-                }
-                if (Date.now() - t0 > 8 * 60 * 1000) throw new Error('Tiempo de espera agotado (8 minutos).');
-            }
-        }
+        // Desde el 22/10/2026 el BORA no responde a servidores fuera de Argentina:
+        // los reportes se generan en un equipo en Argentina y se publican en el
+        // repositorio. Este botón trae los que el servidor todavía no tiene.
+        const resp = await fetch('/api/datos/actualizar', { method: 'POST' });
+        const data = await resp.json().catch(() => ({}));
         if (resp.ok) {
+            const r = data.resumen || {};
+            const nuevos = [...(data.nuevos || []), ...(data.actualizados || [])];
+            const novedad = nuevos.length
+                ? `${nuevos.length} archivo(s) nuevo(s) o actualizado(s)`
+                : 'Ya estaban cargados todos los reportes publicados';
+            const fecha = data.fecha ? data.fecha.split('-').reverse().join('/') : '—';
             resCont.innerHTML = `
-                <strong>✅ Ciclo completado exitosamente</strong>
+                <strong>✅ Datos actualizados</strong> · ${novedad} · último día: <strong>${fecha}</strong>
                 <div class="resultado-stats">
-                    <div class="resultado-stat"><span>${data.licitaciones_bora ?? 0}</span><span>Licitaciones BORA</span></div>
-                    <div class="resultado-stat"><span>${data.adjudicaciones ?? 0}</span><span>Adjudicaciones</span></div>
-                    <div class="resultado-stat"><span>${data.adjudicaciones_con_cuit ?? 0}</span><span>Con CUIT</span></div>
-                    <div class="resultado-stat"><span>${data.comprar ?? 0}</span><span>Comprar.gob.ar</span></div>
-                    <div class="resultado-stat"><span>${data.tgn ?? 0}</span><span>Beneficiarios TGN</span></div>
-                    <div class="resultado-stat"><span style="color:var(--accent-red)">${data.flujo_completo ?? 0}</span><span>Flujo Completo</span></div>
+                    <div class="resultado-stat"><span>${r.licitaciones_bora ?? 0}</span><span>Licitaciones BORA</span></div>
+                    <div class="resultado-stat"><span>${r.adjudicaciones ?? 0}</span><span>Adjudicaciones</span></div>
+                    <div class="resultado-stat"><span>${r.adjudicaciones_con_cuit ?? 0}</span><span>Con CUIT</span></div>
+                    <div class="resultado-stat"><span>${r.comprar ?? 0}</span><span>Comprar.gob.ar</span></div>
+                    <div class="resultado-stat"><span>${r.tgn ?? 0}</span><span>Beneficiarios TGN</span></div>
+                    <div class="resultado-stat"><span style="color:var(--accent-red)">${r.flujo_completo ?? 0}</span><span>Flujo Completo</span></div>
                 </div>
                 <div style="margin-top:10px;font-size:.75rem;color:var(--text-muted)">
-                    📁 ${data.archivo_reporte} &nbsp;·&nbsp; ${data.archivo_flujo}
-                    &nbsp;·&nbsp; <a href="/">Ver en Dashboard XAI →</a>
+                    ${(data.errores || []).length ? `⚠️ ${data.errores.length} archivo(s) no se pudieron bajar · ` : ''}
+                    Fuente: reportes publicados en el repositorio del proyecto
+                    &nbsp;·&nbsp; <a href="/analisis-vivo">Elegir otro día →</a>
                 </div>`;
             resBox.classList.add('exito');
             // Recargar datos sin recargar la página
-            setTimeout(() => cargarDatosIniciales(data.fecha), 1500);
+            setTimeout(() => cargarDatosIniciales(data.fecha), 800);
         } else {
             const detalle = data.detail || 'Error desconocido';
             resCont.innerHTML = `<strong>❌ Error en el ciclo</strong><br><span style="margin-top:6px;display:block">${detalle}</span>`;
@@ -738,10 +750,55 @@ async function cargarDatosIniciales(fecha = null) {
     renderComprar();
     renderAdj();
     renderCharts();
+    cargarNormativa(fecha);
+}
+
+/* ─── MARCO NORMATIVO ────────────────────────────────────────── */
+function esc(t) {
+    return String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+async function cargarNormativa(fecha = null) {
+    const resumen = document.getElementById('normativa-resumen');
+    const tbody = document.getElementById('tbl-normativa');
+    try {
+        const url = fecha ? `/api/licitaciones/normativa?fecha=${fecha}` : '/api/licitaciones/normativa';
+        const data = await (await fetch(url)).json();
+        if (data.sin_datos) {
+            resumen.innerHTML = '<div class="empty">Sin reporte para este día.</div>';
+            tbody.innerHTML = '';
+            return;
+        }
+        const r = data.resumen;
+        const lista = obj => Object.entries(obj).map(([k, v]) => `${esc(k)}: <strong>${v}</strong>`).join(' · ');
+        resumen.innerHTML = `
+            <div class="resultado-stats">
+                <div class="resultado-stat"><span>${r.avisos}</span><span>Avisos evaluados</span></div>
+                <div class="resultado-stat"><span>${r.regimen_propio}</span><span>Entes con régimen propio</span></div>
+                <div class="resultado-stat"><span style="color:var(--accent-yellow, #f59e0b)">${r.con_alertas}</span><span>Con observaciones</span></div>
+            </div>
+            <div style="margin-top:10px;font-size:.8rem;color:var(--text-secondary)">Régimen: ${lista(r.por_regimen)}</div>
+            <div style="margin-top:4px;font-size:.8rem;color:var(--text-secondary)">Procedimiento: ${lista(r.por_procedimiento)}</div>`;
+        const filas = [...data.adjudicaciones, ...data.licitaciones].filter(e => e.alertas.length);
+        tbody.innerHTML = filas.length ? filas.map(e => `
+            <tr>
+                <td>${esc(e.organismo)}</td>
+                <td>${esc(e.tipo_proceso)}</td>
+                <td>${esc(e.regimen_nombre)}<br><span style="font-size:.7rem;color:var(--text-muted)">${esc(e.normas.join(' · '))}</span></td>
+                <td>${e.monto_modulos != null ? e.monto_modulos.toLocaleString('es-AR') + ' M' : '—'}</td>
+                <td>${e.alertas.map(esc).join('<br>')}</td>
+            </tr>`).join('') : '<tr><td colspan="5" class="empty">Ningún aviso con observaciones.</td></tr>';
+    } catch (e) {
+        resumen.innerHTML = '<div class="empty">No se pudo cargar el análisis normativo.</div>';
+        tbody.innerHTML = '';
+    }
 }
 
 /* ─── INIT ───────────────────────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', () => cargarDatosIniciales());
+document.addEventListener('DOMContentLoaded', () => {
+    // /licitaciones?fecha=AAAA-MM-DD abre un día puntual (lo usa la página Carga de Datos)
+    const fecha = new URLSearchParams(location.search).get('fecha');
+    cargarDatosIniciales(/^\d{4}-\d{2}-\d{2}$/.test(fecha || '') ? fecha : null);
+});
 </script>
 
     <footer style="margin-top:3rem; padding:1.5rem 2rem; border-top:1px solid rgba(255,255,255,0.08); text-align:center;">

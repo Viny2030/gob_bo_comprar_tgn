@@ -53,15 +53,17 @@ def _cacheado(clave: str, vigencia: int, calcular):
 
 
 def _probar_bora() -> dict:
+    from diario import proxies_para  # el mismo proxy (BORA_PROXY_URL) que usa el análisis
+    proxies = proxies_para(BORA_URL_PRUEBA)
     t0 = time.monotonic()
     try:
-        r = requests.get(BORA_URL_PRUEBA, headers=_HEADERS, verify=False,
+        r = requests.get(BORA_URL_PRUEBA, headers=_HEADERS, verify=False, proxies=proxies,
                          timeout=(BORA_TIMEOUT_SEG, BORA_TIMEOUT_SEG * 2))
         return {"alcanzable": r.status_code < 500, "http": r.status_code,
-                "segundos": round(time.monotonic() - t0, 2)}
+                "segundos": round(time.monotonic() - t0, 2), "via_proxy": bool(proxies)}
     except Exception as e:
         return {"alcanzable": False, "http": None, "segundos": round(time.monotonic() - t0, 2),
-                "error": type(e).__name__}
+                "error": type(e).__name__, "via_proxy": bool(proxies)}
 
 
 def bora_alcanzable(forzar: bool = False) -> dict:

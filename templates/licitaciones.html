@@ -589,7 +589,7 @@ async function explicarConIA(idx) {
         const data = await resp.json();
         box.style.display = 'block';
         if (data.disponible) {
-            box.innerHTML = `<span class="ia-label">🤖 Explicación (Claude)</span>${data.explicacion}`;
+            box.innerHTML = `<span class="ia-label">🤖 Explicación (Claude)</span>${iaHtml(data.explicacion)}`;
             btn.style.display = 'none';
         } else {
             box.innerHTML = `<span class="ia-label">IA no disponible</span>${data.motivo || 'Configurá ANTHROPIC_API_KEY en Railway para habilitar esta función.'}`;
@@ -756,6 +756,15 @@ async function cargarDatosIniciales(fecha = null) {
 /* ─── MARCO NORMATIVO ────────────────────────────────────────── */
 function esc(t) {
     return String(t ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+// Texto de la IA: escapado y con el markdown básico que usa Claude (**negrita**,
+// # títulos, viñetas, saltos de línea). Antes se insertaba tal cual.
+function iaHtml(t) {
+    return esc(t)
+        .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+        .replace(/^#{1,6}\s*(.+)$/gm, '<b>$1</b>')
+        .replace(/^\s*[-*]\s+/gm, '• ')
+        .replace(/\n/g, '<br>');
 }
 async function cargarNormativa(fecha = null) {
     const resumen = document.getElementById('normativa-resumen');

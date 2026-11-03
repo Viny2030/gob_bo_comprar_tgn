@@ -837,7 +837,7 @@ class FilaRiesgo(BaseModel):
 
 # Límite de uso de la IA: cada consulta tiene costo. 3 usos por visitante (IP) por
 # día y un tope diario total para todo el sitio. Se cuenta solo cuando la IA responde.
-IA_LIMITE_POR_IP  = int(os.getenv("IA_LIMITE_POR_IP", "3"))
+IA_LIMITE_POR_IP  = int(os.getenv("IA_LIMITE_POR_IP", "10"))
 IA_LIMITE_GLOBAL  = int(os.getenv("IA_LIMITE_GLOBAL_DIA", "30"))
 _ia_usos = {"dia": None, "por_ip": {}, "total": 0}
 _ia_lock = threading.Lock()

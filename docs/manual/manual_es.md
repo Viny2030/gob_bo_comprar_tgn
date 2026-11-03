@@ -174,7 +174,7 @@ Cuando está configurada, la IA (Claude, de Anthropic) ofrece dos funciones:
 - **Explicar riesgo:** redacta en lenguaje simple por qué una adjudicación quedó en su nivel, usando solo los indicadores que ya calculó la matriz.
 - **Clasificar aviso:** propone una categoría temática para el texto de un aviso (obra pública, concesión, tarifas, etc.), con su razonamiento.
 
-Cada visitante puede hacer 3 consultas por día, y hay un tope diario para todo el sitio. Las consultas que fallan no se descuentan. La IA es orientativa: **no cambia el índice ni el nivel de riesgo**.
+Cada visitante puede hacer 10 consultas por día, y hay un tope diario para todo el sitio. Las consultas que fallan no se descuentan. La IA es orientativa: **no cambia el índice ni el nivel de riesgo**.
 
 ## 13. Estado del sistema
 

@@ -79,15 +79,16 @@ def test_cruce_tgn_por_organismo_no_dice_cobro():
     assert "cobró" not in out.iloc[0]["alerta"]
 
 
-def test_limite_ia_3_por_dia(monkeypatch):
+def test_limite_ia_por_dia(monkeypatch):
     from fastapi.testclient import TestClient
     import main, agentic_ai
     monkeypatch.setattr(agentic_ai, "ia_disponible", lambda: True)
     monkeypatch.setattr(agentic_ai, "explicar_riesgo_licitacion", lambda fila: {"disponible": True, "explicacion": "ok"})
     main._ia_usos.update({"dia": None, "por_ip": {}, "total": 0})
     c = TestClient(main.app)
-    codigos = [c.post("/api/ia/explicar-riesgo", json={}).status_code for _ in range(4)]
-    assert codigos == [200, 200, 200, 429]
+    n = main.IA_LIMITE_POR_IP
+    codigos = [c.post("/api/ia/explicar-riesgo", json={}).status_code for _ in range(n + 1)]
+    assert codigos == [200] * n + [429]
 
 
 def test_ia_fallida_no_consume_uso(monkeypatch):

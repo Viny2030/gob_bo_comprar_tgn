@@ -206,7 +206,7 @@ PLANTILLA = """<!DOCTYPE html>
                 <p>Ph.D. Vicente Humberto Monteverde · Algoritmos contra la Corrupción</p>
             </div>
             <nav>
-                <a href="https://mapatransparencia-production.up.railway.app" target="_blank">🗺️ Mapa</a>
+                <a href="https://mapa.ecosistematransparencia.com.ar" target="_blank">🗺️ Mapa</a>
                 <a href="/">📊 Dashboard</a>
                 <a href="/licitaciones">🏛️ Licitaciones</a>
                 <a href="/analisis-vivo">📥 Carga de Datos</a>

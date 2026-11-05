@@ -406,7 +406,7 @@ def status():
         "total_contratos": total_contratos,
         "alertas_alto_riesgo": alto_riesgo,
         "reportes_en_disco": len(archivos),
-        "mapa_transparencia": "https://mapatransparencia-production.up.railway.app",
+        "mapa_transparencia": "https://mapa.ecosistematransparencia.com.ar",
     }
 
 @app.get("/api/reportes")

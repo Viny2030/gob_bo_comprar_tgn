@@ -221,13 +221,33 @@ Interactive documentation at `/docs`.
 6. Open the original BORA notice (linked in each row) before drawing conclusions.
 7. If a day is missing, check it under **Status**: it is filled in automatically when the computer in Argentina is turned on, or by hand (Section 4.4).
 
-## 17. Downloads
+## 17. 🕸️ How this site connects to the rest of the ecosystem
+
+This site is part of the **Transparency Ecosystem**: eleven monitors that query each other. Below, which sites it exchanges data with ("uses →" = takes data from that site; "← used by" = that site takes data from this one) and which official sources feed it. The graph is interactive: click any site to see its profile.
+
+[Open the full graph ↗](https://mapa.ecosistematransparencia.com.ar/grafo?nodo=comprar&lang=en)
+
+**Connections**
+
+- **uses → Contratos**: Same BORA awards; the daily cross-validation checks they match day by day and in amount.
+- **uses → MEACI**: Checks supplier CUITs against MEACI's sanctioned list and that MEACI is reachable.
+- **← used by Mapa**: Link and live status. The daily cross-validation (Mon–Fri 13:00) compares Comprar and Contratos day by day, to the peso.
+
+**Official sources**
+
+- Official Gazette (BORA), 3rd section
+- COMPR.AR
+- National Treasury (TGN)
+
+Every connection in detail, and how figures are cross-checked between sites: [mapa.ecosistematransparencia.com.ar/en/manual#conexiones](https://mapa.ecosistematransparencia.com.ar/en/manual#conexiones)
+
+## 18. Downloads
 
 - Manual in Spanish and English (.docx), from this page.
 - Dashboard guide (.docx), from Documentation.
 - Each day's Excel file, from Status, from Data Loading or with `GET /api/reporte/YYYY-MM-DD/excel`.
 
-## 18. Disclaimer
+## 19. Disclaimer
 
 > This tool is experimental and academic in nature. The data comes from official public sources of the Argentine government. Results are algorithmic risk indicators: they do not imply a value judgment, an accusation or a finding of liability against any company, agency or person. The goal is to promote transparency and informed debate about public spending.
 

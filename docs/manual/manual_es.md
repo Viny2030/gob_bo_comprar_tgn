@@ -221,13 +221,33 @@ Documentación interactiva en `/docs`.
 6. Abra el aviso original del BORA (enlace en cada fila) antes de sacar conclusiones.
 7. Si falta un día, mírelo en **Estado**: se completa solo cuando el equipo de Argentina se enciende, o a mano (Sección 4.4).
 
-## 17. Descargas
+## 17. 🕸️ Relación con los otros sitios del ecosistema
+
+Este sitio es parte del **Ecosistema de Transparencia**: once monitores que se consultan entre sí. Abajo, con qué sitios intercambia datos ("usa →" = toma datos de ese sitio; "← lo usa" = ese sitio toma datos de este) y de qué fuentes oficiales se alimenta. El grafo es interactivo: hacé clic en cualquier sitio para ver su ficha.
+
+[Abrir el grafo completo ↗](https://mapa.ecosistematransparencia.com.ar/grafo?nodo=comprar)
+
+**Conexiones**
+
+- **usa → Contratos**: Mismas adjudicaciones del BORA; la validación cruzada diaria comprueba que coincidan día por día y en monto.
+- **usa → MEACI**: Cruza CUIT de proveedores contra las sancionadas de MEACI y controla que MEACI esté disponible.
+- **← lo usa Mapa**: Enlace y estado en vivo. La validación cruzada diaria (lun–vie 13:00) compara Comprar y Contratos día por día y peso por peso.
+
+**Fuentes oficiales**
+
+- Boletín Oficial (BORA), 3.ª sección
+- COMPR.AR
+- Tesorería General de la Nación (TGN)
+
+Detalle de todas las conexiones y de cómo se verifican las cifras entre sitios: [mapa.ecosistematransparencia.com.ar/manual#conexiones](https://mapa.ecosistematransparencia.com.ar/manual#conexiones)
+
+## 18. Descargas
 
 - Manual en español y en inglés (.docx), desde esta página.
 - Instructivo del dashboard (.docx), desde Documentación.
 - Excel de cada día, desde Estado, desde Carga de Datos o con `GET /api/reporte/AAAA-MM-DD/excel`.
 
-## 18. Aviso
+## 19. Aviso
 
 > Esta herramienta es de carácter experimental y académico. Los datos provienen de fuentes públicas oficiales del Estado argentino. Los resultados son indicadores algorítmicos de riesgo: no implican juicio de valor, acusación ni determinación de responsabilidad sobre ninguna empresa, organismo o persona. El objetivo es promover la transparencia y el debate informado sobre el gasto público.
 

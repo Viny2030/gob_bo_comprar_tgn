@@ -409,6 +409,22 @@ def status():
         "mapa_transparencia": "https://mapa.ecosistematransparencia.com.ar",
     }
 
+@app.get("/api/frescura")
+def frescura():
+    """Ficha de frescura (formato común del ecosistema, ver frescura.py): de
+    dónde sale cada dato, qué período cubre, cuándo se cargó y si está atrasado."""
+    from frescura import evaluar
+
+    archivos = buscar_todos_los_xlsx(DATA_DIR)
+    ultimo = os.path.basename(archivos[0]).replace("reporte_", "").replace(".xlsx", "") if archivos else None
+    return evaluar("comprar", [
+        {"id": "reportes", "dato": "Reporte diario de licitaciones y contratos", "fuente": "Boletín Oficial · COMPR.AR · TGN",
+         "periodo": f"hasta {ultimo}" if ultimo else "sin reportes", "periodo_fin": ultimo, "ultima_carga": ultimo,
+         "frecuencia": "días hábiles", "max_dias_carga": 5,
+         "nota": f"{len(archivos)} reportes guardados."},
+    ])
+
+
 @app.get("/api/reportes")
 def listar_reportes():
     archivos = buscar_todos_los_xlsx(DATA_DIR)

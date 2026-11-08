@@ -95,6 +95,12 @@ For the report to include TGN, the computer needs the `TGN_TOKEN` variable.
 
 From **Data Loading**, with the admin key, you can upload a daily Excel file produced outside the automatic pipeline (Section 8). The system checks that it has the sheets of a monitor report before saving it.
 
+### 4.6 Workflow graph
+
+The graph shows where the site gets its data, which processes transform it, where it is stored and what it publishes. Every node carries its name; click one to see where it gets data from and what it feeds.
+
+[Open the workflow graph ↗](https://mapa.ecosistematransparencia.com.ar/funcionamiento?sitio=comprar&lang=en)
+
 ## 5. Navigation
 
 - **Dashboard:** summary of the latest report.

@@ -292,9 +292,9 @@
             <div class="pipe-arrow">→</div>
             <div class="pipe-stage s4" onclick="filterStage('tgn')">
                 <div class="stage-src">TGN · Tesorería</div>
-                <div class="stage-title">Cobros en TGN</div>
+                <div class="stage-title">Organismos con pagos</div>
                 <div class="stage-num" id="cnt-tgn">—</div>
-                <div class="stage-sub">pagos registrados</div>
+                <div class="stage-sub">no confirma que el proveedor haya cobrado</div>
             </div>
         </div>
     </div>
@@ -510,13 +510,13 @@ function renderMetricas() {
     const f = DATA.flujo;
     const sinCuit    = f.filter(r => r.etapa && r.etapa.includes('SIN CUIT')).length;
     const conCuit    = f.filter(r => r.cuit_proveedor && r.cuit_proveedor !== '').length;
-    const pagados    = f.filter(r => r.cobro_en_tgn && r.cobro_en_tgn.includes('SÍ')).length;
+    const conPagos   = f.filter(r => r.organismo_con_pagos_tgn && r.organismo_con_pagos_tgn.includes('SÍ')).length;
     const flujoTotal = f.filter(r => r.alerta && r.alerta.includes('FLUJO COMPLETO')).length;
 
     document.getElementById('cnt-bora').textContent    = DATA.bora_licitaciones.length  || '—';
     document.getElementById('cnt-comprar').textContent = DATA.comprar.length             || '—';
     document.getElementById('cnt-adj').textContent     = DATA.bora_adjudicaciones.filter(r => r.cuit_proveedor && r.cuit_proveedor !== '').length || '—';
-    document.getElementById('cnt-tgn').textContent     = pagados || '—';
+    document.getElementById('cnt-tgn').textContent     = conPagos || '—';
 
     document.getElementById('m-bora-total').textContent     = (DATA.bora_licitaciones.length + DATA.bora_adjudicaciones.length) || '—';
     document.getElementById('m-cuit').textContent           = conCuit    || '—';
@@ -544,7 +544,7 @@ function renderFlujo(data) {
                 <div class="flujo-checks">
                     ${alertaChip(r.alerta)}
                     ${checkChip(r.en_comprar, '🛒 Comprar')}
-                    ${checkChip(r.cobro_en_tgn, '💵 TGN')}
+                    ${checkChip(r.organismo_con_pagos_tgn, '💵 Organismo con pagos')}
                     ${r.cuit_proveedor && r.cuit_proveedor !== '' ? `<span class="chip chip-comprar">CUIT: ${r.cuit_proveedor}</span>` : ''}
                     ${riesgoAlto ? `<span class="chip chip-sin-cuit">⚠️ Riesgo ${r.nivel_riesgo_licit}</span>` : ''}
                 </div>
@@ -656,13 +656,13 @@ function renderAdj() {
 function filterStage(stage) {
     document.querySelectorAll('.pipe-stage').forEach(el => el.classList.remove('active'));
     const map    = { bora: 's1', comprar: 's2', adj: 's3', tgn: 's4' };
-    const labels = { bora: 'Todos', comprar: 'En Comprar', adj: 'Adjudicados', tgn: 'Cobros TGN' };
+    const labels = { bora: 'Todos', comprar: 'En Comprar', adj: 'Adjudicados', tgn: 'Organismos con pagos' };
     document.querySelector('.pipe-stage.' + map[stage]).classList.add('active');
     document.getElementById('filter-label').textContent = labels[stage];
     let filtered = DATA.flujo;
     if (stage === 'comprar') filtered = DATA.flujo.filter(r => r.en_comprar && r.en_comprar.includes('SÍ'));
     if (stage === 'adj')     filtered = DATA.flujo.filter(r => r.cuit_proveedor && r.cuit_proveedor !== '');
-    if (stage === 'tgn')     filtered = DATA.flujo.filter(r => r.cobro_en_tgn && r.cobro_en_tgn.includes('SÍ'));
+    if (stage === 'tgn')     filtered = DATA.flujo.filter(r => r.organismo_con_pagos_tgn && r.organismo_con_pagos_tgn.includes('SÍ'));
     renderFlujo(filtered);
 }
 function resetFilter() {
@@ -702,10 +702,10 @@ function renderCharts() {
             scales: { x: { grid: { color: '#1e2d4a' }, ticks: { font: { size: 9 }, maxRotation: 30 } }, y: { grid: { color: '#1e2d4a' }, ticks: { stepSize: 1 } } } }
     });
 
-    const et = { 'Sin CUIT': 0, 'Adjudicado': 0, 'Cobró TGN': 0, 'Flujo Completo': 0 };
+    const et = { 'Sin CUIT': 0, 'Adjudicado': 0, 'Organismo con pagos': 0, 'Flujo Completo': 0 };
     DATA.flujo.forEach(r => {
         if (r.alerta && r.alerta.includes('FLUJO COMPLETO'))        et['Flujo Completo']++;
-        else if (r.cobro_en_tgn && r.cobro_en_tgn.includes('SÍ'))  et['Cobró TGN']++;
+        else if (r.organismo_con_pagos_tgn && r.organismo_con_pagos_tgn.includes('SÍ')) et['Organismo con pagos']++;
         else if (r.etapa && r.etapa.includes('ADJUDICADO'))         et['Adjudicado']++;
         else                                                         et['Sin CUIT']++;
     });

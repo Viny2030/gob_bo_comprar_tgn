@@ -77,6 +77,8 @@ def test_cruce_tgn_por_organismo_no_dice_cobro():
     assert out.iloc[0]["metodo_cruce_tgn"] == "organismo"
     assert "COBRÓ" not in out.iloc[0]["etapa"]
     assert "cobró" not in out.iloc[0]["alerta"]
+    assert out.iloc[0]["cobro_en_tgn"] == "❌ NO"
+    assert out.iloc[0]["organismo_con_pagos_tgn"] == "✅ SÍ"
 
 
 def test_limite_ia_por_dia(monkeypatch):

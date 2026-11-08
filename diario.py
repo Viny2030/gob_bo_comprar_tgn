@@ -548,7 +548,9 @@ def cruzar_fuentes(df_adjudicaciones, df_comprar, df_tgn):
             "procesos_comprar":         len(comprar_matches),
             "unidad_comprar":           comprar_matches[0].get("unidad_ejecutora", "") if comprar_matches else "",
             "nro_proceso_comprar":      comprar_matches[0].get("nro_proceso", "") if comprar_matches else "",
-            "cobro_en_tgn":             "✅ SÍ" if en_tgn else "❌ NO",
+            # "SÍ" sólo con coincidencia por CUIT: por organismo no se sabe quién cobró.
+            "cobro_en_tgn":             "✅ SÍ" if en_tgn and metodo_cruce == "CUIT" else "❌ NO",
+            "organismo_con_pagos_tgn":  "✅ SÍ" if en_tgn else "❌ NO",
             "beneficiario_tgn":         tgn_match["beneficiario"] if en_tgn else "",
             # Crédito pagado del ORGANISMO en el año, en millones de pesos (Presupuesto Abierto)
             "monto_cobrado_tgn":        tgn_match["monto_pagado"] if en_tgn else "",

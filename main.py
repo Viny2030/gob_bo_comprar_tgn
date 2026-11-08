@@ -17,6 +17,7 @@ import pandas as pd
 import httpx
 import asyncpg
 
+from extensiones.cobro_tgn import normalizar_df, normalizar_fila
 from extensiones.zona_horaria import hoy_ar_str  # el servidor corre en UTC: "hoy" es el de Argentina
 
 # ── PostgreSQL ───────────────────────────────────────────────────────────────
@@ -160,7 +161,7 @@ def leer_hoja(ruta, hojas_preferidas):
         # dtype=str: si no, los CUIT sin guiones se leen como número ("30715935577.0")
         # y fallan el cruce con MEACI y la validación de dígito verificador.
         df = xl.parse(hoja, dtype=str).fillna("")
-        return df.to_dict(orient="records")
+        return [normalizar_fila(f) for f in df.to_dict(orient="records")]
     except Exception as e:
         print(f"Error leyendo {ruta}: {e}")
         return []
@@ -180,7 +181,7 @@ def cargar_ultimo_reporte():
         # Prioridad: hoja con datos XAI → flujo cruzado → cualquiera
         hojas = ["⚠️ Riesgo Licitatorio", "🚨 Flujo Completo", "🔗 Flujo Cruzado", "Sheet1"]
         hoja = next((h for h in hojas if h in xl.sheet_names), xl.sheet_names[0])
-        return xl.parse(hoja)
+        return normalizar_df(xl.parse(hoja))
     except Exception as e:
         print(f"Error cargando reporte: {e}")
         return pd.DataFrame()

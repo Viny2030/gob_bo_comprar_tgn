@@ -95,6 +95,12 @@ Para que el reporte incluya TGN, el equipo necesita la variable `TGN_TOKEN`.
 
 Desde **Carga de Datos**, con la clave de administración, se puede subir un Excel diario generado fuera del circuito automático (Sección 8). El sistema verifica que tenga las hojas de un reporte del monitor antes de guardarlo.
 
+### 4.6 Grafo de funcionamiento
+
+El grafo muestra de qué fuentes toma los datos el sitio, qué procesos los transforman, dónde se guardan y qué publica. Cada nodo lleva su nombre; haciendo clic en uno se ve de dónde recibe datos y a qué alimenta.
+
+[Abrir el grafo de funcionamiento ↗](https://mapa.ecosistematransparencia.com.ar/funcionamiento?sitio=comprar)
+
 ## 5. Estructura de navegación
 
 - **Dashboard:** resumen del último reporte.

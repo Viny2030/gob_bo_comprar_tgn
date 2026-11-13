@@ -1,17 +1,37 @@
 name: Monitor Diario Integrado BORA y Compras
 
+# Rutina principal, en los servidores de GitHub: no depende de ninguna PC.
+# Desde el 22/10/2026 el BORA no responde a IP de fuera de Argentina, así que las
+# consultas al BORA salen por el proxy residencial del secret BORA_PROXY_URL
+# (IPRoyal, salida en Argentina). Comprar y TGN van directo.
+#
+# Usa tools/actualizar_desde_pc.py: genera TODOS los días hábiles sin reporte
+# desde `desde` (no solo el de hoy) y los publica en `desarrollo`. Si una corrida
+# falla, la siguiente completa lo que falte. ejecucion_diaria_argentina.yml (runner
+# en la PC) queda de respaldo una hora después: si este ya generó el día, no hace nada.
+
 on:
   schedule:
     - cron: '0 11 * * 1-5' # 08:00 Argentina (UTC-3), lunes a viernes
-    - cron: '0 15 * * 1-5' # 12:00 Argentina: reintento si a la mañana el BORA no respondió (si ya hay reporte, no hace nada)
+    - cron: '0 15 * * 1-5' # 12:00 Argentina: reintento (si ya está el reporte, no hace nada)
   workflow_dispatch:
+    inputs:
+      desde:
+        description: 'Primer día a revisar (AAAA-MM-DD)'
+        required: false
+        default: '2026-10-21'
 
 permissions:
   contents: write
 
+concurrency:
+  group: monitor-diario
+  cancel-in-progress: false
+
 jobs:
   run-analysis:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
 
     steps:
       - name: Descargar código (Checkout)
@@ -28,44 +48,30 @@ jobs:
       - name: Instalar librerías
         run: |
           python -m pip install --upgrade pip
-          # requirements.txt completo: antes faltaba `holidays` y el chequeo de feriados quedaba apagado
           pip install -r requirements.txt
 
       - name: Capturar fecha
         id: fecha
-        run: echo "fecha=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+        run: echo "fecha=$(TZ=America/Argentina/Buenos_Aires date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
-      - name: Ejecutar Ciclo Integrado
-        run: python diario.py
+      - name: Verificar proxy configurado
+        env:
+          BORA_PROXY_URL: ${{ secrets.BORA_PROXY_URL }}
+        run: |
+          if [ -z "$BORA_PROXY_URL" ]; then
+            echo "::error::Falta el secret BORA_PROXY_URL: sin proxy en Argentina el BORA no responde a GitHub."
+            exit 1
+          fi
+
+      - name: Generar y publicar los reportes que falten
         env:
           TGN_TOKEN: ${{ secrets.TGN_TOKEN }}
-
-      - name: Guardar Reporte y Sincronizar
+          BORA_PROXY_URL: ${{ secrets.BORA_PROXY_URL }}
+          PYTHONIOENCODING: utf-8
         run: |
-          git config --global user.name 'Robot Monitor'
-          git config --global user.email 'robot@noreply.github.com'
-          git add data/
-          git diff --staged --quiet && echo "Sin cambios, nada que commitear" && exit 0
-          git commit -m "Reporte Integrado BORA-COMPRAR-TGN: $(date +'%Y-%m-%d')"
-          git pull --rebase origin desarrollo
-          git push origin HEAD:desarrollo
-
-      - name: Notificar exito
-        if: success()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.gmail.com
-          server_port: 465
-          secure: true
-          username: ${{ secrets.MAIL_USER }}
-          password: ${{ secrets.MAIL_PASS }}
-          to: ${{ secrets.MAIL_TO }}
-          from: Monitor BORA <${{ secrets.MAIL_USER }}>
-          subject: "Monitor diario OK - ${{ steps.fecha.outputs.fecha }}"
-          body: |
-            El ciclo diario BORA + Comprar + TGN se ejecuto correctamente.
-
-            Ver run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          git config user.name 'Robot Monitor'
+          git config user.email 'robot@noreply.github.com'
+          python -W ignore tools/actualizar_desde_pc.py --publicar --desde "${{ github.event.inputs.desde || '2026-10-21' }}"
 
       - name: Notificar fallo
         if: failure()
@@ -85,6 +91,6 @@ jobs:
             Ver logs: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
             Causas comunes:
+            - Falta el secret BORA_PROXY_URL o se agoto el trafico del proxy (dashboard.iproyal.com)
             - BORA / Comprar / TGN no respondieron
             - Error en el codigo de scraping
-            - Problema de autenticacion en el push

@@ -165,9 +165,15 @@ def main(argv=None):
     if a.dry_run or not faltan:
         return 0
 
-    sonda = diario.requests.get("https://www.boletinoficial.gob.ar/", headers=diario.HEADERS,
-                                timeout=(10, 20), verify=False)
-    print(f"🔌 BORA responde desde esta conexión (HTTP {sonda.status_code}).")
+    url_sonda = "https://www.boletinoficial.gob.ar/"
+    via = "por el proxy de BORA_PROXY_URL" if diario.proxies_para(url_sonda) else "desde esta conexión"
+    try:
+        sonda = diario.requests.get(url_sonda, headers=diario.HEADERS, timeout=(10, 20), verify=False,
+                                    proxies=diario.proxies_para(url_sonda))
+    except Exception as e:
+        print(f"❌ El BORA no responde {via}: {diario.sin_credenciales(e)}")
+        return 1
+    print(f"🔌 BORA responde {via} (HTTP {sonda.status_code}).")
 
     cache, resultados = {}, []
     for f in faltan:

@@ -1,20 +1,19 @@
 name: Monitor Diario desde Argentina (runner propio)
 
-# Complementa a ejecucion_diaria.yml (que no se modifica). Desde el 22/10/2026
-# el BORA no responde a los servidores de GitHub, así que este workflow corre en
-# un runner self-hosted con conexión de Argentina (etiqueta `argentina`) y usa
-# tools/actualizar_desde_pc.py: genera TODOS los días hábiles sin reporte (no
-# solo el de hoy) y los publica en `desarrollo`. Si un día el runner estuvo
-# apagado, la corrida siguiente completa lo que falte.
+# RESPALDO de ejecucion_diaria.yml, que desde el 03/11/2026 corre en GitHub con
+# un proxy en Argentina (BORA_PROXY_URL). Este corre en el runner self-hosted de
+# la PC (etiqueta `argentina`) con la conexión de la PC, y usa el mismo script
+# (tools/actualizar_desde_pc.py): si el de GitHub ya generó el día, no hace nada.
 #
-# Mientras no haya un runner con la etiqueta `argentina` conectado, las
-# corridas quedan en cola y GitHub las cancela a las 24 h. Ver
-# REFORMAS_2026-10-30.md, "Que siga actualizando solo".
+# Va una hora después del de GitHub para no generar el mismo día a la vez. Si la
+# PC está apagada, la corrida queda en cola hasta 24 h y se ejecuta al prenderla.
+# Grupo de concurrencia propio: una corrida en cola esperando a la PC no debe
+# frenar a la de GitHub.
 
 on:
   schedule:
-    - cron: '30 11 * * 1-5'  # 08:30 Argentina
-    - cron: '30 15 * * 1-5'  # 12:30 Argentina: reintento (si ya está el reporte, no hace nada)
+    - cron: '30 12 * * 1-5'  # 09:30 Argentina
+    - cron: '30 16 * * 1-5'  # 13:30 Argentina: reintento (si ya está el reporte, no hace nada)
   workflow_dispatch:
     inputs:
       desde:

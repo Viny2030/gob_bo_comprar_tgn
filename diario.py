@@ -16,6 +16,27 @@ HEADERS = {
     "Connection": "keep-alive",
 }
 
+# Desde el 22/10/2026 el BORA no responde a IP de fuera de Argentina (GitHub
+# Actions, Railway). Si BORA_PROXY_URL está definida (p. ej. un proxy residencial
+# con salida en Argentina: http://usuario:clave@host:puerto), las consultas al
+# BORA, y solo esas, salen por ahí. Comprar y TGN siguen yendo directo.
+HOSTS_POR_PROXY = ("boletinoficial.gob.ar",)
+
+
+def proxies_para(url):
+    """{'http': ..., 'https': ...} si la URL es del BORA y hay proxy configurado; si no, None."""
+    proxy = os.getenv("BORA_PROXY_URL", "").strip()
+    host = re.sub(r"^https?://", "", url).split("/")[0].split(":")[0].lower()
+    if proxy and any(host == h or host.endswith("." + h) for h in HOSTS_POR_PROXY):
+        return {"http": proxy, "https": proxy}
+    return None
+
+
+def sin_credenciales(texto):
+    """Quita usuario:clave de cualquier URL en un mensaje de error antes de mostrarlo."""
+    return re.sub(r"(\w+://)[^/\s:@]+:[^/\s@]+@", r"\1***@", str(texto))
+
+
 # ─────────────────────────────────────────
 # UTILIDADES
 # ─────────────────────────────────────────
@@ -23,11 +44,12 @@ def get_con_reintentos(url, intentos=3, timeout=60, espera=15, verify_ssl=False)
     for i in range(intentos):
         try:
             print(f"  🔄 Intento {i+1}: {url[:80]}...")
-            r = requests.get(url, headers=HEADERS, timeout=timeout, verify=verify_ssl)
+            r = requests.get(url, headers=HEADERS, timeout=timeout, verify=verify_ssl,
+                             proxies=proxies_para(url))
             r.raise_for_status()
             return r
         except Exception as e:
-            print(f"  ⚠️ Error intento {i+1}: {e}")
+            print(f"  ⚠️ Error intento {i+1}: {sin_credenciales(e)}")
             if i < intentos - 1:
                 time.sleep(espera)
     raise Exception(f"❌ Fallaron todos los intentos: {url}")
@@ -123,7 +145,7 @@ def obtener_texto_aviso_bora(aviso_id, fecha_pub):
     ]
     for url in urls:
         try:
-            r = requests.get(url, headers=HEADERS, timeout=20, verify=False)
+            r = requests.get(url, headers=HEADERS, timeout=20, verify=False, proxies=proxies_para(url))
             if r.status_code != 200:
                 continue
             content_type = r.headers.get("Content-Type", "")
@@ -153,7 +175,7 @@ def obtener_texto_aviso_bora(aviso_id, fecha_pub):
             if any(kw in texto_completo.upper() for kw in ["CUIT", "ADJUDIC", "PROVEEDOR"]):
                 return texto_completo
         except Exception as e:
-            print(f"  ⚠️ URL texto falló ({url[:60]}): {e}")
+            print(f"  ⚠️ URL texto falló ({url[:60]}): {sin_credenciales(e)}")
     return ""
 
 # ─────────────────────────────────────────
